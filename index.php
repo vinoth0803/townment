@@ -8,7 +8,7 @@
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen bg-cover bg-center px-4" 
-      style="background-image: url('Assets/apartment.jpg');">
+      style="background-image: url('Assets/apartment2.jpeg');">
 
   <div class="bg-[#F6DED8] p-6 rounded shadow-md w-full max-w-sm sm:max-w-md bg-opacity-80">
       <h2 class="text-2xl font-bold mb-4 text-center text-[#B82132]">TOWNMENT LOGIN</h2>

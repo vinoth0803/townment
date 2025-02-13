@@ -4,7 +4,7 @@ include 'admin_header.php';
 ?>
 
 <div class="flex-1 p-6 overflow-auto">
-  <h1 class="text-3xl font-bold mb-6 text-gray-800">Maintenance Details</h1>
+  <h1 class="text-3xl font-bold mb-6 text-gray-800">EB Details</h1>
 
   <!-- Maintenance Table Container -->
   <div class="overflow-x-auto bg-white shadow-md rounded-lg p-4">
