@@ -32,7 +32,7 @@ include 'admin_header.php';
                   <td class="border p-2">${ticket.status}</td>
                   <td class="border p-2">
                     <select onchange="updateTicketStatus(${ticket.id}, this.value)" class="border p-1 rounded">
-                      <option value="opened" ${ticket.status==='opened'?'selected':''}>Opened</option>
+                      <option value="opened" class="text-green" ${ticket.status==='opened'?'selected':''}>Opened</option>
                       <option value="inprogress" ${ticket.status==='inprogress'?'selected':''}>Inprogress</option>
                       <option value="closed" ${ticket.status==='closed'?'selected':''}>Closed</option>
                     </select>

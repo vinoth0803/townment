@@ -6,9 +6,9 @@ include 'admin_header.php';
 <div class="space-y-6 p-4 sm:p-6 lg:p-8">
   <!-- Row 1: Total Tenants and Search Bar -->
   <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-    <div class="bg-[#B82132] p-4 rounded shadow">
-      <h2 class="text-2xl font-bold mb-2 text-center text-[#F6DED8]">Total Tenants</h2>
-      <p id="totalTenants" class="text-3xl text-center text-[#F6DED8]"></p>
+    <div class="bg-[#B82132] p-3 rounded shadow">
+      <h2 class="text-2xl font-bold mb-2 text-center text-white">Total Tenants</h2>
+      <p id="totalTenants" class="text-3xl text-center text-white"></p>
     </div>
     <div class="bg-[#F6DED8] p-4 rounded shadow flex flex-col sm:flex-row items-center">
       <input type="text" id="searchUsername" placeholder="Search tenant by username" 

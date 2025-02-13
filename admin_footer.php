@@ -24,26 +24,30 @@
       });
 
       // Attach logout functionality to desktop and mobile logout buttons
-      function attachLogout(selector) {
-        const btn = document.getElementById(selector);
-        if (btn) {
-          btn.addEventListener("click", function(e) {
-            e.preventDefault();
-            fetch('logout.php', { method: 'GET' })
-              .then(response => response.json())
-              .then(data => {
-                if (data.success) {
-                  window.location.href = 'login.php';
-                } else {
-                  alert('Logout failed!');
-                }
-              })
-              .catch(error => console.error('Error:', error));
+  function attachLogout(selector) {
+    const btn = document.getElementById(selector);
+    if (btn) {
+      btn.addEventListener("click", function(e) {
+        e.preventDefault();
+        fetch('logout.php', { method: 'GET' })
+          .then(response => response.json())
+          .then(data => {
+            console.log("Logout API response:", data); // Debug log
+            if (data.success) {
+              window.location.href = 'index.php';
+            } else {
+              alert('Logout failed!');
+            }
+          })
+          .catch(error => {
+            console.error('Error during logout:', error);
+            alert('Logout encountered an error.');
           });
-        }
-      }
-      attachLogout('logoutBtn');
-      attachLogout('mobileLogoutBtn');
+      });
+    }
+  }
+  attachLogout('logoutBtn');
+  attachLogout('mobileLogoutBtn');
 
       // Mobile sidebar toggle
       const menuToggle = document.getElementById("menuToggle");
