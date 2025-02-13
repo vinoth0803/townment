@@ -6,7 +6,7 @@ include 'admin_header.php';
   <h1 class="text-2xl font-bold mb-6">Manage Tenants</h1>
   <div class="mb-4">
     <input type="text" id="searchUsername" placeholder="Search tenant by username" class="border p-2 rounded w-1/2">
-    <button onclick="searchTenantManage()" class="bg-[#B82132] text-white px-4 py-2 rounded ml-2 hover:bg-[#D2665A] transition">Search</button>
+    <button onclick="searchTenantManage()" class="bg-[#B82132] text-white px-4 py-2 rounded ml-2 hover:bg-[#D2665A    ] transition">Search</button>
   </div>
   <div id="tenantsTable"></div>
 </div>

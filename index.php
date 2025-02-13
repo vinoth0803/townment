@@ -41,7 +41,7 @@
             success: function(response) {
                 if (response.status === "success") {
                     alert("Login successful!");
-                    window.location.href = (response.user.role === "admin") ? "admin.php" : "tenant.php";
+                    window.location.href = (response.user.role === "admin") ? "admin.php" : "tenant_dashboard.php";
                 } else {
                     $("#error-message").text(response.message).removeClass("hidden");
                 }

@@ -139,6 +139,26 @@ if ($action === 'addTenant') {
     }
 }
 
+
+elseif ($action === 'getTenantProfile') {
+    if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'tenant') {
+        respond(['status' => 'error', 'message' => 'Unauthorized']);
+    }
+    $userId = $_SESSION['user']['id'];
+    // Adjust the query if you have a separate tenant_fields table.
+    $stmt = $pdo->prepare("SELECT u.username, u.email, u.phone, tf.tenant_name 
+                           FROM users u 
+                           LEFT JOIN tenant_fields tf ON u.id = tf.user_id 
+                           WHERE u.id = ?");
+    $stmt->execute([$userId]);
+    $profile = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($profile) {
+         respond(['status' => 'success', 'profile' => $profile]);
+    } else {
+         respond(['status' => 'error', 'message' => 'Profile not found']);
+    }
+}
+
 /*---------------------------------------------------------
   2. Add Tenant Fields
      Expects JSON body: { "username": "", "door_number": "", "floor": "", "block": "", "tenant_name": "", "configuration": "" }

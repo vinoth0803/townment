@@ -52,6 +52,7 @@ include 'admin_header.php';
 </div>
 
 <script>
+  
   // Load total tenants count
   async function loadTotalTenants(){
     try {
