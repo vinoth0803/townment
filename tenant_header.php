@@ -40,7 +40,7 @@ $tenantFields = isset($_SESSION['tenant_fields']) ? $_SESSION['tenant_fields'] :
     /* Sidebar: background: #B82132; text/icons: white */
     .sidebar {
       position: fixed;
-      top: 3.5rem;
+      top: 3.2rem;
       left: 0;
       width: 16rem;
       height: calc(100vh - 3.5rem);
@@ -48,6 +48,7 @@ $tenantFields = isset($_SESSION['tenant_fields']) ? $_SESSION['tenant_fields'] :
       box-shadow: 2px 0 5px rgba(0,0,0,0.1);
       padding: 1.25rem;
       overflow-y: auto;
+     
       transition: transform 0.3s ease-in-out;
     }
     .sidebar a {
@@ -67,6 +68,7 @@ $tenantFields = isset($_SESSION['tenant_fields']) ? $_SESSION['tenant_fields'] :
       transition: margin-left 0.3s ease-in-out;
     }
     @media (max-width: 767px) {
+      .content { margin-left: 0; margin-top: 4rem; }
       .sidebar {
         transform: translateX(-100%);
       }
@@ -74,12 +76,17 @@ $tenantFields = isset($_SESSION['tenant_fields']) ? $_SESSION['tenant_fields'] :
         margin-left: 0;
         margin-top: 4rem;
       }
+      .logo img {
+      max-height: 50px;
+      padding-left: 70px;
+    }
     }
     /* Mobile Sidebar: same styling as desktop */
     .mobile-sidebar {
       transition: transform 0.3s ease-in-out;
       background-color: #B82132;
       color: white;
+      z-index: -1;
     }
     /* Calendar Card */
     .calendar-card {
@@ -132,7 +139,7 @@ $tenantFields = isset($_SESSION['tenant_fields']) ? $_SESSION['tenant_fields'] :
   <!-- Top Navbar -->
   <nav class="top-navbar">
     <!-- Left: Logo -->
-    <div class="flex items-center">
+    <div class="flex items-center logo">
       <img src="Assets/TOWNMENT logo 2.png" alt="TOWNMENT Logo" class="h-10">
     </div>
     <!-- Right: Calendar, Bell, Date/Time, Profile -->
@@ -250,7 +257,7 @@ $tenantFields = isset($_SESSION['tenant_fields']) ? $_SESSION['tenant_fields'] :
     <!-- Logout at bottom -->
     <div class=" mt-5  ">
       <a id="logoutBtn" href="logout.php" class="flex items-center px-2 py-1 hover:bg-white hover:text-[#B82132] transition-colors duration-300">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 swing">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 rotate">
   <path stroke-linecap="round" stroke-linejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
 </svg>
         <span class="ml-2">Logout</span>
@@ -259,7 +266,7 @@ $tenantFields = isset($_SESSION['tenant_fields']) ? $_SESSION['tenant_fields'] :
   </aside>
 
   <!-- Mobile Sidebar (toggleable) -->
-  <aside id="mobileSidebar" class="fixed top-0 left-0 w-64 h-full mobile-sidebar shadow-lg p-5 z-50 transform -translate-x-full transition-transform duration-300 md:hidden">
+  <aside id="mobileSidebar" class="fixed top-14 left-0 w-64 h-full mobile-sidebar shadow-lg p-5 z-50 transform -translate-x-full transition-transform duration-300 md:hidden">
     <h2 class="text-xl font-bold mb-6">TENANT</h2>
     <ul class="space-y-4">
       <li>
