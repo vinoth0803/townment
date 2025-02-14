@@ -1,6 +1,11 @@
 <?php
 $pageTitle = "Dashboard - TOWNMENT";
 include 'tenant_header.php';
+
+// Use the profile photo from the session or fall back to default
+$profile_photo = isset($_SESSION['user']['profile_photo']) && !empty($_SESSION['user']['profile_photo'])
+    ? $_SESSION['user']['profile_photo']
+    : 'Assets/Default Profile picture.png';
 ?>
 <style>
   li {
@@ -12,7 +17,7 @@ include 'tenant_header.php';
   <div class="bg-white p-6 rounded shadow flex flex-col md:flex-row items-center">
     <div class="flex-shrink-0">
       <!-- Replace with actual tenant profile picture if available -->
-      <img src="Assets/default-avatar.png" alt="Profile Picture" class="w-20 h-20 rounded-full">
+      <img src="<?php echo htmlspecialchars($profile_photo); ?>" alt="Profile Picture" class="w-32 h-32 rounded-full object-cover">
     </div>
     <div class="mt-4 md:mt-0 md:ml-6">
       <h2 id="profileUsername" class="text-2xl font-bold text-gray-800"></h2>

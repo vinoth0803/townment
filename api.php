@@ -138,7 +138,131 @@ if ($action === 'addTenant') {
         respond(['status' => 'error', 'message' => 'Failed to add tenant']);
     }
 }
+elseif ($action === 'uploadPhoto') {
+    // Ensure the logged-in user is a tenant
+    if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'tenant') {
+        respond(['status' => 'error', 'message' => 'Unauthorized']);
+    }
+    
+    // Check if a file was uploaded without errors
+    if (!isset($_FILES['photo']) || $_FILES['photo']['error'] !== UPLOAD_ERR_OK) {
+        respond(['status' => 'error', 'message' => 'File upload failed']);
+    }
+    
+    // Validate file type (allow only jpg, jpeg, png, gif)
+    $allowed = ['jpg', 'jpeg', 'png', 'gif'];
+    $fileName = $_FILES['photo']['name'];
+    $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+    if (!in_array($ext, $allowed)) {
+        respond(['status' => 'error', 'message' => 'Invalid file type']);
+    }
+    
+    // Define target directory (ensure this directory exists and is writable)
+    $targetDir = "uploads/tenant_photos/";
+    if (!is_dir($targetDir)) {
+        mkdir($targetDir, 0755, true);
+    }
+    
+    // Generate a unique file name
+    $newFileName = uniqid() . '.' . $ext;
+    $targetFile = $targetDir . $newFileName;
+    
+    // Move the uploaded file
+    if (move_uploaded_file($_FILES['photo']['tmp_name'], $targetFile)) {
+        $tenantId = $_SESSION['user']['id'];
+        
+        // Check if a photo record already exists for this tenant
+        $stmt = $pdo->prepare("SELECT id FROM tenant_photos WHERE user_id = ?");
+        $stmt->execute([$tenantId]);
+        if ($stmt->rowCount() > 0) {
+            // Update the existing record
+            $stmt = $pdo->prepare("UPDATE tenant_photos SET photo_path = ?, updated_at = NOW() WHERE user_id = ?");
+            $success = $stmt->execute([$targetFile, $tenantId]);
+        } else {
+            // Insert a new record
+            $stmt = $pdo->prepare("INSERT INTO tenant_photos (user_id, photo_path) VALUES (?, ?)");
+            $success = $stmt->execute([$tenantId, $targetFile]);
+        }
+        
+        if ($success) {
+            // Update session so that the new photo is displayed on next load
+            $_SESSION['user']['profile_photo'] = $targetFile;
+            respond([
+                'status' => 'success',
+                'message' => 'Photo updated successfully',
+                'photo_url' => $targetFile
+            ]);
+        } else {
+            respond(['status' => 'error', 'message' => 'Failed to update photo in database']);
+        }
+    } else {
+        respond(['status' => 'error', 'message' => 'Failed to move uploaded file']);
+    }
+}
 
+//update password
+
+elseif ($action === 'updatePassword') {
+    // Allow both tenant and admin to update password, if needed.
+    if (!isset($_SESSION['user']) || !in_array($_SESSION['user']['role'], ['tenant', 'admin'])) {
+        respond(['status' => 'error', 'message' => 'Unauthorized']);
+    }
+    
+    $input = json_decode(file_get_contents("php://input"), true);
+    if (!isset($input['old_password'], $input['new_password'])) {
+        respond(['status' => 'error', 'message' => 'Missing parameters']);
+    }
+    
+    $userId = $_SESSION['user']['id'];
+    
+    // Retrieve the current hashed password from the database
+    $stmt = $pdo->prepare("SELECT password FROM users WHERE id = ?");
+    $stmt->execute([$userId]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if (!$user || !password_verify($input['old_password'], $user['password'])) {
+        respond(['status' => 'error', 'message' => 'Old password is incorrect']);
+    }
+    
+    // Hash the new password securely
+    $newHash = password_hash($input['new_password'], PASSWORD_DEFAULT);
+    $stmt = $pdo->prepare("UPDATE users SET password = ? WHERE id = ?");
+    $success = $stmt->execute([$newHash, $userId]);
+    
+    if ($success) {
+        respond(['status' => 'success', 'message' => 'Password updated successfully']);
+    } else {
+        respond(['status' => 'error', 'message' => 'Failed to update password']);
+    }
+}
+
+// In your api.php, add the following case for "getTenantFields":
+    elseif ($action === 'getTenantFields') {
+        // Only allow access for tenant users
+        if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'tenant') {
+            respond(['status' => 'error', 'message' => 'Unauthorized']);
+        }
+        
+        // Get the tenant's user ID from session
+        $tenant_id = $_SESSION['user']['id'];
+        
+        // Prepare a query to fetch tenant fields and profile photo (if exists)
+        $stmt = $pdo->prepare("
+            SELECT tf.tenant_name, tf.door_number, tf.block, tf.floor, tf.configuration, tp.photo_path
+            FROM tenant_fields tf
+            LEFT JOIN tenant_photos tp ON tf.user_id = tp.user_id
+            WHERE tf.user_id = ?
+        ");
+        $stmt->execute([$tenant_id]);
+        $fields = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($fields) {
+            respond(['status' => 'success', 'fields' => $fields]);
+        } else {
+            respond(['status' => 'error', 'message' => 'Tenant fields not found']);
+        }
+    }
+    
 
 elseif ($action === 'getTenantProfile') {
     if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'tenant') {

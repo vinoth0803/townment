@@ -7,23 +7,18 @@ document.addEventListener("DOMContentLoaded", function() {
   setInterval(updateDateTime, 1000);
   updateDateTime();
 
-  // Set current date in calendar card
-  document.getElementById('calendarBtn').addEventListener("click", function() {
-    const calendarCard = document.getElementById('calendarCard');
-    if(calendarCard.classList.contains("hidden")) {
-      const now = new Date();
-      // Format date as desired, e.g. "Mon, 20 Sep 2021"
-      calendarCard.innerHTML = `<p class="text-center font-bold">${now.toLocaleDateString()}</p>`;
-      calendarCard.classList.remove("hidden");
-    } else {
-      calendarCard.classList.add("hidden");
-    }
-  });
+ // Toggle Google Calendar
+ document.getElementById('calendarBtn').addEventListener('click', function () {
+      let calendarCard = document.getElementById('calendarCard');
+      calendarCard.style.display = calendarCard.style.display === 'block' ? 'none' : 'block';
+    });
 
-  // Toggle Profile Dropdown on click
-  document.getElementById("profileIcon").addEventListener("click", function() {
-    document.getElementById("profileDropdown").classList.toggle("hidden");
-  });
+  // Toggle Profile Dropdown
+  document.getElementById('profileIcon').addEventListener('click', function () {
+      let profileDropdown = document.getElementById('profileDropdown');
+      profileDropdown.classList.toggle('hidden');
+    });
+  
 
   // Attach logout functionality
   function attachLogout(selector) {

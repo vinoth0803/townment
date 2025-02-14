@@ -13,6 +13,10 @@ $tenantFields = isset($_SESSION['tenant_fields']) ? $_SESSION['tenant_fields'] :
     'block' => '',
     'floor' => ''
 ];
+// Use the profile photo from the session or fall back to default
+$profile_photo = isset($_SESSION['user']['profile_photo']) && !empty($_SESSION['user']['profile_photo'])
+    ? $_SESSION['user']['profile_photo']
+    : 'Assets/Default Profile picture.png';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -37,6 +41,7 @@ $tenantFields = isset($_SESSION['tenant_fields']) ? $_SESSION['tenant_fields'] :
       align-items: center;
       justify-content: space-between;
     }
+    
     /* Sidebar: background: #B82132; text/icons: white */
     .sidebar {
       position: fixed;
@@ -61,6 +66,7 @@ $tenantFields = isset($_SESSION['tenant_fields']) ? $_SESSION['tenant_fields'] :
       color: #B82132 !important;
     }
     /* Main Content */
+  
     .content {
       margin-left: 17rem;
       margin-top: 4rem;
@@ -72,13 +78,17 @@ $tenantFields = isset($_SESSION['tenant_fields']) ? $_SESSION['tenant_fields'] :
       .sidebar {
         transform: translateX(-100%);
       }
+      
       .content {
         margin-left: 0;
         margin-top: 4rem;
       }
+      .calendar-card{
+        right: -100px;
+      }
       .logo img {
       max-height: 50px;
-      padding-left: 70px;
+      padding-left: 40px;
     }
     }
     /* Mobile Sidebar: same styling as desktop */
@@ -91,9 +101,8 @@ $tenantFields = isset($_SESSION['tenant_fields']) ? $_SESSION['tenant_fields'] :
     /* Calendar Card */
     .calendar-card {
       position: absolute;
-      right: 0;
+      right: -50px;
       top: 2.5rem;
-      background-color: #B82132;
       color: white;
       border-radius: 0.5rem;
       padding: 0.5rem;
@@ -144,17 +153,16 @@ $tenantFields = isset($_SESSION['tenant_fields']) ? $_SESSION['tenant_fields'] :
     </div>
     <!-- Right: Calendar, Bell, Date/Time, Profile -->
     <div class="flex items-center space-x-4">
-      <!-- Calendar Icon -->
+      <!-- Google Calendar Icon -->
       <div class="relative">
         <button id="calendarBtn" class="focus:outline-none">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="size-6">
-  <path d="M5.75 7.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5ZM5 10.25a.75.75 0 1 1 1.5 0 .75.75 0 0 1-1.5 0ZM10.25 7.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5ZM7.25 8.25a.75.75 0 1 1 1.5 0 .75.75 0 0 1-1.5 0ZM8 9.5A.75.75 0 1 0 8 11a.75.75 0 0 0 0-1.5Z" />
-  <path fill-rule="evenodd" d="M4.75 1a.75.75 0 0 0-.75.75V3a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2V1.75a.75.75 0 0 0-1.5 0V3h-5V1.75A.75.75 0 0 0 4.75 1ZM3.5 7a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v4.5a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1V7Z" clip-rule="evenodd" />
-</svg>
-
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M5.75 7.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5ZM5 10.25a.75.75 0 1 1 1.5 0 .75.75 0 0 1-1.5 0ZM10.25 7.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5ZM7.25 8.25a.75.75 0 1 1 1.5 0 .75.75 0 0 1-1.5 0ZM8 9.5A.75.75 0 1 0 8 11a.75.75 0 0 0 0-1.5Z"/>
+            <path fill-rule="evenodd" d="M4.75 1a.75.75 0 0 0-.75.75V3a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2V1.75a.75.75 0 0 0-1.5 0V3h-5V1.75A.75.75 0 0 0 4.75 1ZM3.5 7a1 1 0 0 1 1-1h7a1 1 0 0 1 1 1v4.5a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1V7Z" clip-rule="evenodd"/>
+          </svg>
         </button>
-        <div id="calendarCard" class="calendar-card">
-          <p id="currentDate" class="text-center font-bold"></p>
+        <div id="calendarCard" class="calendar-card calendar">
+          <iframe src="https://calendar.google.com/calendar/embed?height=300&wkst=1&ctz=Asia%2FKolkata&showPrint=0&showTitle=0&showTz=0&showCalendars=0&src=NmI0M2M2YjAwZjA5M2UxM2ZhMTRhZTNjMzA2MjZmOTY0MDdjNGQ3Y2ExZTIxMjY2MzBkOTkwOWE3NDljYjQ2OUBncm91cC5jYWxlbmRhci5nb29nbGUuY29t&src=ZW4uaW5kaWFuI2hvbGlkYXlAZ3JvdXAudi5jYWxlbmRhci5nb29nbGUuY29t&color=%23B39DDB&color=%230B8043" style="border:none" width="300" height="300" frameborder="0" scrolling="no" ></iframe>
         </div>
       </div>
       <!-- Bell Icon with swing animation -->
@@ -169,18 +177,18 @@ $tenantFields = isset($_SESSION['tenant_fields']) ? $_SESSION['tenant_fields'] :
       <!-- Profile Icon -->
       <div class="relative">
         <button id="profileIcon" class="focus:outline-none">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="#B82132">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                  d="M5.121 17.804A10.97 10.97 0 0112 15c2.21 0 4.247.63 5.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0z"/>
-          </svg>
+        <img src="<?php echo htmlspecialchars($profile_photo); ?>" alt="Profile Picture" class="w-10 h-10 rounded-full object-cover">
         </button>
-        <div id="profileDropdown" class="profile-dropdown">
-          <p class="font-bold">Tenant Details</p>
-          <p id="tenantName" class="text-sm"><?php echo htmlspecialchars($tenantFields['username']); ?></p>
-          <p id="tenantEmail" class="text-sm"><?php echo htmlspecialchars($tenant['email']); ?></p>
-          <p id="tenantPhone" class="text-sm"><?php echo htmlspecialchars($tenant['phone']); ?></p>
+        <div id="profileDropdown" class="profile-dropdown hidden bg-white border border-gray-300 rounded shadow-md p-4">
+          <div class="text-center">
+            <img src="Assets/Default Profile picture.png" alt="Profile" class="h-20 w-20 rounded-full mx-auto">
+            <a href="tenant_profile.php" class="block text-sm text-blue-500 mt-2">Update Photo</a>
+          </div>
+          <p class="font-bold mt-2">Tenant Details</p>
+          <p class="text-sm"><?php echo htmlspecialchars($tenantFields['tenant_name']); ?></p>
+          <p class="text-sm"><?php echo htmlspecialchars($tenant['email']); ?></p>
+          <p class="text-sm"><?php echo htmlspecialchars($tenant['phone']); ?></p>
         </div>
-      </div>
     </div>
   </nav>
 
@@ -219,7 +227,7 @@ $tenantFields = isset($_SESSION['tenant_fields']) ? $_SESSION['tenant_fields'] :
           <span class="ml-2">EB Bills</span>
         </a>
       </li>
-      <li>
+      <li>  
         <a href="tenant_gas_usage.php" class="flex items-center px-2 py-1 hover:bg-white hover:text-[#B82132] transition-colors duration-300">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 swing">
   <path stroke-linecap="round" stroke-linejoin="round" d="M15.362 5.214A8.252 8.252 0 0 1 12 21 8.25 8.25 0 0 1 6.038 7.047 8.287 8.287 0 0 0 9 9.601a8.983 8.983 0 0 1 3.361-6.867 8.21 8.21 0 0 0 3 2.48Z" />
