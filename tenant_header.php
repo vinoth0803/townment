@@ -58,7 +58,7 @@ $profile_photo = isset($_SESSION['user']['profile_photo']) && !empty($_SESSION['
     }
     .sidebar a {
       color: #F6DED8;
-      border-radius: 5px;
+      border-radius: 16px;
     }
     .sidebar a.active,
     .sidebar a:hover {

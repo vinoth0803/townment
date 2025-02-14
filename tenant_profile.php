@@ -12,7 +12,7 @@ $profile_photo = isset($_SESSION['user']['profile_photo']) && !empty($_SESSION['
     <!-- Left Column: Profile Image & Tenant Additional Fields -->
     <div class="w-full md:w-1/2 space-y-6">
       <!-- Profile Image Card -->
-      <div class="bg-white p-6 rounded shadow">
+      <div class="bg-white p-6 rounded-xl shadow">
   <div class="flex flex-col items-center">
     <img src="<?php echo htmlspecialchars($profile_photo); ?>" alt="Profile Picture" class="w-32 h-32 rounded-full object-cover">
     <a href="#" id="updatePhotoLink" class="mt-3 text-[#B82132] hover:underline" onclick="toggleUpdatePhotoForm(); return false;">
@@ -27,8 +27,8 @@ $profile_photo = isset($_SESSION['user']['profile_photo']) && !empty($_SESSION['
 </div>
 
       <!-- Tenant Additional Fields Card -->
-      <div class="bg-white p-6 rounded shadow">
-        <h2 class="text-xl font-bold text-gray-800 mb-4">Tenant Details</h2>
+      <div class="bg-white p-6 rounded-xl shadow">
+        <h2 class="text-xl font-bold text-[#B82132] mb-4">Tenant Details</h2>
         <div id="tenantFieldsContainer">
           <!-- Tenant fields will be loaded here via API -->
           <p class="text-gray-600">Loading tenant details...</p>
@@ -38,29 +38,29 @@ $profile_photo = isset($_SESSION['user']['profile_photo']) && !empty($_SESSION['
     <!-- Right Column: Account Information & Update Password -->
     <div class="w-full md:w-1/2 space-y-6">
       <!-- Account Info Card -->
-      <div class="bg-white p-6 rounded shadow">
-        <h2 class="text-xl font-bold text-gray-800 mb-4">Account Information</h2>
+      <div class="bg-white p-6 rounded-xl shadow">
+        <h2 class="text-xl font-bold text-[#B82132] mb-4">Account Information</h2>
         <p class="text-gray-700"><strong>Username:</strong> <?php echo htmlspecialchars($_SESSION['user']['username'] ?? 'N/A'); ?></p>
         <p class="text-gray-700"><strong>Email:</strong> <?php echo htmlspecialchars($_SESSION['user']['email'] ?? 'N/A'); ?></p>
         <p class="text-gray-700"><strong>Phone:</strong> <?php echo htmlspecialchars($_SESSION['user']['phone'] ?? 'N/A'); ?></p>
       </div>
       <!-- Update Password Card -->
-      <div class="bg-white p-6 rounded shadow">
-        <h2 class="text-xl font-bold text-gray-800 mb-4">Update Password</h2>
+      <div class="bg-white p-6 rounded-xl shadow">
+        <h2 class="text-xl font-bold text-[#B82132] mb-4">Update Password</h2>
         <form id="updatePasswordForm" class="space-y-4">
           <div>
             <label class="block text-gray-700">Old Password</label>
-            <input type="password" name="old_password" required class="w-full border border-gray-300 p-2 rounded">
+            <input type="password" name="old_password" required class="w-full border border-gray-300 p-2 rounded-2xl">
           </div>
           <div>
             <label class="block text-gray-700">New Password</label>
-            <input type="password" name="new_password" required class="w-full border border-gray-300 p-2 rounded">
+            <input type="password" name="new_password" required class="w-full border border-gray-300 p-2 rounded-2xl">
           </div>
           <div>
             <label class="block text-gray-700">Confirm New Password</label>
-            <input type="password" name="confirm_password" required class="w-full border border-gray-300 p-2 rounded">
+            <input type="password" name="confirm_password" required class="w-full border border-gray-300 p-2 rounded-2xl">
           </div>
-          <button type="submit" class="w-full bg-[#B82132] text-white p-2 rounded">Update Password</button>
+          <button type="submit" class="w-full bg-[#B82132] hover:bg-[#8E1616] text-white p-2 rounded-full">Update Password</button>
         </form>
       </div>
     </div>
