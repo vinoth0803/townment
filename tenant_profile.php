@@ -2,9 +2,14 @@
 $pageTitle = "Tenant Profile - TOWNMENT";
 include 'tenant_header.php';
 
-// Use the profile photo from the session or fall back to default
-$profile_photo = isset($_SESSION['user']['profile_photo']) && !empty($_SESSION['user']['profile_photo'])
-    ? $_SESSION['user']['profile_photo']
+$stmt = $pdo->prepare("SELECT photo_path FROM tenant_photos WHERE user_id = ?");
+$stmt->execute([$_SESSION['user']['id']]);
+$photoRecord = $stmt->fetch(PDO::FETCH_ASSOC);
+
+// Determine which photo URL to use: use the one from the database if available,
+// otherwise fall back to the default photo.
+$profile_photo = ($photoRecord && !empty($photoRecord['photo_path']))
+    ? $photoRecord['photo_path']
     : 'Assets/Default Profile picture.png';
 ?>
 <div class="p-4 sm:p-6 lg:p-8">
@@ -20,9 +25,15 @@ $profile_photo = isset($_SESSION['user']['profile_photo']) && !empty($_SESSION['
     </a>
     <!-- Update Photo Form (initially hidden) -->
     <form id="updatePhotoForm" class="mt-3 hidden" enctype="multipart/form-data" method="POST">
-      <input type="file" name="photo" id="profile_photo_input" accept="image/*" class="mb-2">
-      <button type="submit" class="bg-[#B82132] text-white px-4 py-2 rounded">Upload</button>
-    </form>
+  <div class="flex items-center space-x-2">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+    </svg>
+    <input type="file" name="photo" id="profile_photo_input" accept="image/*" class="mb-2">
+  </div>
+  <button type="submit" class="bg-[#B82132] text-white px-4 py-2 rounded mt-2">Upload</button>
+</form>
+
   </div>
 </div>
 
@@ -87,6 +98,7 @@ async function loadTenantFields() {
         <p><strong>Block:</strong> ${fields.block || 'N/A'}</p>
         <p><strong>Tenant/Lease Name:</strong> ${fields.tenant_name || 'N/A'}</p>
         <p><strong>Configuration:</strong> ${fields.configuration || 'N/A'}</p>
+        <p><strong>Maintenance:</strong> ${fields.maintenance_cost || 'N/A'}</p>
       `;
     } else {
       document.getElementById('tenantFieldsContainer').innerHTML = `<p class="text-gray-600">No tenant details found.</p>`;

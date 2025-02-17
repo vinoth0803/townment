@@ -185,7 +185,7 @@ elseif ($action === 'uploadPhoto') {
         }
         
         if ($success) {
-            // Update session so that the new photo is displayed on next load
+            // Update the session value (optional)
             $_SESSION['user']['profile_photo'] = $targetFile;
             respond([
                 'status' => 'success',
@@ -199,6 +199,7 @@ elseif ($action === 'uploadPhoto') {
         respond(['status' => 'error', 'message' => 'Failed to move uploaded file']);
     }
 }
+
 
 //update password
 
@@ -248,7 +249,7 @@ elseif ($action === 'updatePassword') {
         
         // Prepare a query to fetch tenant fields and profile photo (if exists)
         $stmt = $pdo->prepare("
-            SELECT tf.tenant_name, tf.door_number, tf.block, tf.floor, tf.configuration, tp.photo_path
+            SELECT tf.tenant_name, tf.door_number, tf.block, tf.floor, tf.configuration, tf.maintenance_cost, tp.photo_path
             FROM tenant_fields tf
             LEFT JOIN tenant_photos tp ON tf.user_id = tp.user_id
             WHERE tf.user_id = ?
