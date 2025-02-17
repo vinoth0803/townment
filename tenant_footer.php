@@ -2,10 +2,17 @@
 document.addEventListener("DOMContentLoaded", function() {
   // Update live date & time
   function updateDateTime() {
-    document.getElementById('dateTime').innerText = new Date().toLocaleString();
-  }
-  setInterval(updateDateTime, 1000);
-  updateDateTime();
+  const now = new Date();
+  const day = String(now.getDate()).padStart(2, '0');
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const year = now.getFullYear();
+  const time = now.toLocaleTimeString();
+  
+  document.getElementById('dateTime').innerText = `${day}/${month}/${year} ${time}`;
+}
+
+setInterval(updateDateTime, 1000);
+updateDateTime();
 
  // Toggle Google Calendar
  document.getElementById('calendarBtn').addEventListener('click', function () {

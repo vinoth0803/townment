@@ -12,7 +12,7 @@ $profile_photo = isset($_SESSION['user']['profile_photo']) && !empty($_SESSION['
     <!-- Left Column: Profile Image & Tenant Additional Fields -->
     <div class="w-full md:w-1/2 space-y-6">
       <!-- Profile Image Card -->
-      <div class="bg-white p-6 rounded-xl shadow">
+      <div class="bg-[white] p-6 rounded-xl shadow">
   <div class="flex flex-col items-center">
     <img src="<?php echo htmlspecialchars($profile_photo); ?>" alt="Profile Picture" class="w-32 h-32 rounded-full object-cover">
     <a href="#" id="updatePhotoLink" class="mt-3 text-[#B82132] hover:underline" onclick="toggleUpdatePhotoForm(); return false;">
@@ -31,7 +31,8 @@ $profile_photo = isset($_SESSION['user']['profile_photo']) && !empty($_SESSION['
         <h2 class="text-xl font-bold text-[#B82132] mb-4">Tenant Details</h2>
         <div id="tenantFieldsContainer">
           <!-- Tenant fields will be loaded here via API -->
-          <p class="text-gray-600">Loading tenant details...</p>
+          <p class="text-gray-600">
+Loading tenant details...</p>
         </div>
       </div>
     </div>

@@ -10,19 +10,19 @@
 <body class="bg-gray-100 flex items-center justify-center min-h-screen bg-cover bg-center px-4" 
       style="background-image: url('Assets/apartment2.jpeg');">
 
-  <div class="bg-[#F6DED8] p-6 rounded shadow-md w-full max-w-sm sm:max-w-md bg-opacity-80">
+  <div class="bg-[#F6DED8] p-6 rounded-3xl shadow-md w-full max-w-sm sm:max-w-md bg-opacity-80">
       <h2 class="text-2xl font-bold mb-4 text-center text-[#B82132]">TOWNMENT LOGIN</h2>
-      <div id="error-message" class="bg-red-200 text-red-800 p-2 rounded mb-4 hidden"></div>
+      <div id="error-message" class="bg-red-200 text-red-800 p-2 rounded-full mb-4 hidden"></div>
       <form id="login-form" class="space-y-4">
           <div>
               <label class="block text-[#B82132]">Email</label>
-              <input type="email" id="email" required class="w-full border border-white p-2 rounded focus:ring-1 focus:ring-[#B82132] focus:outline-none">
+              <input type="email" id="email" required class="w-full border border-white p-2 rounded-full focus:ring-1 focus:ring-[#B82132] focus:outline-none">
           </div>
           <div>
               <label class="block text-[#B82132]">Password</label>
-              <input type="password" id="password" required class="w-full border border-white p-2 rounded focus:ring-1 focus:ring-[#B82132] focus:outline-none">
+              <input type="password" id="password" required class="w-full border border-white p-2 rounded-full focus:ring-1 focus:ring-[#B82132] focus:outline-none">
           </div>
-          <button type="submit" class="w-full bg-[#B82132] text-white p-2 shadow-md rounded transition-transform transform hover:scale-105 active:scale-95">Login</button>
+          <button type="submit" class="w-full bg-[#B82132] text-white p-2 shadow-md rounded-full transition-transform transform hover:scale-105 active:scale-95">Login</button>
       </form>
   </div>
 
