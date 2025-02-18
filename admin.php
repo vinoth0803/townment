@@ -6,33 +6,33 @@ include 'admin_header.php';
 <div class="space-y-6 p-4 sm:p-6 lg:p-8">
   <!-- Row 1: Total Tenants and Search Bar -->
   <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-    <div class="bg-[#B82132] p-3 rounded shadow">
+    <div class="bg-[#B82132] p-3 rounded-xl shadow">
       <h2 class="text-2xl font-bold mb-2 text-center text-white">Total Tenants</h2>
       <p id="totalTenants" class="text-3xl text-center text-white"></p>
     </div>
-    <div class="bg-[#F6DED8] p-4 rounded shadow flex flex-col sm:flex-row items-center">
+    <div class="bg-[#F6DED8] p-4 rounded-xl shadow flex flex-col sm:flex-row items-center">
       <input type="text" id="searchUsername" placeholder="Search tenant by username" 
-             class="flex-1 border p-2 rounded focus:ring-1 focus:ring-[#B82132] focus:outline-none w-full sm:w-auto">
+             class="flex-1 border p-2 rounded-full focus:ring-1 focus:ring-[#B82132] focus:outline-none w-full sm:w-auto">
       <button onclick="searchTenantDashboard()" 
-              class="bg-[#B82132] text-[#F6DED8] px-4 py-2 rounded mt-2 sm:mt-0 sm:ml-2">Search</button>
+              class="bg-[#B82132] text-[#F6DED8] px-4 py-2 rounded-full mt-2 sm:mt-0 sm:ml-2">Search</button>
     </div>
   </div>
 
   <!-- Row 2: Newly Raised Tickets Reminder -->
-  <div id="ticketsReminder" class="bg-white p-4 rounded shadow"></div>
+  <div id="ticketsReminder" class="bg-white p-4 rounded-xl shadow"></div>
 
   <!-- Row 3: Latest Tenants Table with Filters -->
-  <div class="bg-white p-4 rounded shadow">
+  <div class="bg-white p-4 rounded-xl shadow">
     <div class="flex flex-col sm:flex-row justify-between items-center mb-4 space-y-4 sm:space-y-0">
       <h2 class="text-xl font-bold">Latest Tenants</h2>
       <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
-        <select id="filterBHK" class="border p-2 rounded w-full sm:w-auto">
+        <select id="filterBHK" class="border p-2 rounded-xl w-full sm:w-auto">
           <option value="">All BHK</option>
           <option value="1BHK">1BHK</option>
           <option value="2BHK">2BHK</option>
           <option value="3BHK">3BHK</option>
         </select>
-        <select id="filterPeriod" class="border p-2 rounded w-full sm:w-auto">
+        <select id="filterPeriod" class="border p-2 rounded-xl w-full sm:w-auto">
           <option value="">All Periods</option>
           <option value="7">Last 7 Days</option>
           <option value="90">Last 3 Months</option>
@@ -40,7 +40,7 @@ include 'admin_header.php';
           <option value="365">Last 12 Months</option>
         </select>
         <button onclick="loadLatestTenants()" 
-                class="bg-[#B82132] text-[#F6DED8] px-4 py-2 rounded w-full sm:w-auto">Filter</button>
+                class="bg-[#B82132] text-[white] px-4 py-2 rounded-xl w-full sm:w-auto">Filter</button>
       </div>
     </div>
 

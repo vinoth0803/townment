@@ -26,7 +26,7 @@ $admin = $_SESSION['user']; // Must contain: username, email, phone
     }
     /* Top Bar: white background; text and icons: #d2665a */
     .top-navbar {
-      background-color:rgb(240, 239, 239);
+      background-color:rgb(255, 255, 255);
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
       position: fixed;
       top: 0;
@@ -55,7 +55,7 @@ $admin = $_SESSION['user']; // Must contain: username, email, phone
       transition: transform 0.3s ease-in-out;
     }
     .sidebar a { 
-      color: #F6DED8;
+      color: white;
       border-radius: 5px;
     }
     /* Active sidebar link: white background with #d2665a text and icons */

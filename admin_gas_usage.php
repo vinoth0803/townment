@@ -4,23 +4,23 @@ include 'admin_header.php';
 ?>
 
 <div class="flex-1 p-6 overflow-auto">
-    <h1 class="text-2xl font-bold mb-4">Gas Usage</h1>
+    <h1 class="text-3xl font-bold mb-6 text-gray-800">Gas Usage</h1>
     
     <!-- Gas Usage Table -->
-    <div class="overflow-x-auto">
-        <table class="w-full border-collapse border border-gray-300">
+    <div class="overflow-x-auto bg-white shadow-md rounded-lg p-4">
+        <table class="w-full border-collapse">
             <thead>
-                <tr class="bg-gray-200">
-                    <th class="border px-4 py-2">Username</th>
-                    <th class="border px-4 py-2">Tenant Name</th>
-                    <th class="border px-4 py-2">Block</th>
-                    <th class="border px-4 py-2">Door No</th>
-                    <th class="border px-4 py-2">Phone</th>
-                    <th class="border px-4 py-2">Gas Consumed</th>
-                    <th class="border px-4 py-2">Amount</th>
-                    <th class="border px-4 py-2">Due Date</th>
-                    <th class="border px-4 py-2">Status</th>
-                    <th class="border px-4 py-2">Action</th>
+                <tr class="bg-gray-200 text-gray-700 uppercase text-sm leading-normal">
+                    <th class="py-3 px-6 text-left">Username</th>
+                    <th class="py-3 px-6 text-left">Tenant Name</th>
+                    <th class="py-3 px-6 text-left">Block</th>
+                    <th class="py-3 px-6 text-left">Door No</th>
+                    <th class="py-3 px-6 text-left">Phone</th>
+                    <th class="py-3 px-6 text-left">Gas Consumed</th>
+                    <th class="py-3 px-6 text-left">Amount</th>
+                    <th class="py-3 px-6 text-left">Due Date</th>
+                    <th class="py-3 px-6 text-left">Status</th>
+                    <th class="py-3 px-6 text-left">Action</th>
                 </tr>
             </thead>
             <tbody id="gasUsageTable">
@@ -46,22 +46,22 @@ async function fetchTenants() {
             }
 
             const row = `
-                <tr>
-                    <td class="border px-4 py-2">${tenant.username}</td>
-                    <td class="border px-4 py-2">${tenant.tenant_name}</td>
-                    <td class="border px-4 py-2">${tenant.block}</td>
-                    <td class="border px-4 py-2">${tenant.door_no}</td>
-                    <td class="border px-4 py-2">${tenant.phone}</td>
-                    <td class="border px-4 py-2">
+                <tr class="border-b hover:bg-gray-100">
+                    <td class="py-3 px-6 text-left">${tenant.username}</td>
+                    <td class="py-3 px-6 text-left">${tenant.tenant_name}</td>
+                    <td class="py-3 px-6 text-left">${tenant.block}</td>
+                    <td class="py-3 px-6 text-left">${tenant.door_no}</td>
+                    <td class="py-3 px-6 text-left">${tenant.phone}</td>
+                    <td class="py-3 px-6 text-left">
                         <input type="number" step="0.01" class="border p-2 w-full gas-consumed" data-username="${tenant.username}">
                     </td>
-                    <td class="border px-4 py-2">
+                    <td class="py-3 px-6 text-left">
                         <input type="number" step="0.01" class="border p-2 w-full gas-amount" data-username="${tenant.username}">
                     </td>
-                    <td class="border px-4 py-2">${tenant.due_date || 'N/A'}</td>
-                    <td class="border px-4 py-2 font-bold ${status === 'overdue' ? 'text-red-500' : 'text-yellow-500'}">${status}</td>
-                    <td class="border px-4 py-2">
-                        <button class="bg-blue-500 text-white px-4 py-2 rounded update-bill" data-username="${tenant.username}">Update Bill</button>
+                    <td class="py-3 px-6 text-left">${tenant.due_date || 'N/A'}</td>
+                    <td class="py-3 px-6 text-left font-bold ${status === 'overdue' ? 'text-red-500' : 'text-yellow-500'}">${status}</td>
+                    <td class="py-3 px-6 text-left">
+                        <button class="bg-[#B82132] text-white px-4 py-2 rounded-2xl update-bill" data-username="${tenant.username}">Update Bill</button>
                     </td>
                 </tr>
             `;

@@ -5,8 +5,8 @@ include 'admin_header.php';
 <div class="flex-1 p-6 overflow-auto">
   <h1 class="text-2xl font-bold mb-6">Manage Tenants</h1>
   <div class="mb-4">
-    <input type="text" id="searchUsername" placeholder="Search tenant by username" class="border p-2 rounded w-1/2">
-    <button onclick="searchTenantManage()" class="bg-[#B82132] text-white px-4 py-2 rounded ml-2 hover:bg-[#D2665A    ] transition">Search</button>
+    <input type="text" id="searchUsername" placeholder="Search tenant by username" class="border p-2 rounded-full w-1/2">
+    <button onclick="searchTenantManage()" class="bg-[#B82132] text-white px-4 py-2 rounded-full ml-2 hover:bg-[#D2665A    ] transition">Search</button>
   </div>
   <div id="tenantsTable"></div>
 </div>
@@ -28,7 +28,7 @@ include 'admin_header.php';
   function displayTenants(tenants){
     let html = '';
     if(tenants.length > 0){
-      html += `<table class="min-w-full border-collapse bg-white rounded-lg shadow">
+      html += `<table class="min-w-full border-collapse bg-white rounded-2xl shadow">
         <thead class="bg-gray-200 text-gray-700 uppercase text-sm">
           <tr>
             <th class="border px-4 py-2 text-left">Username</th>
@@ -44,7 +44,7 @@ include 'admin_header.php';
           <td class="border px-4 py-2">${t.email}</td>
           <td class="border px-4 py-2">${t.phone}</td>
           <td class="border px-4 py-2 text-center">
-            <button onclick="deleteTenant('${t.username}')" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded transition">
+            <button onclick="deleteTenant('${t.username}')" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-full transition">
               Delete
             </button>
           </td>
