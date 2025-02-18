@@ -34,17 +34,17 @@ include 'admin_header.php';
 async function fetchTenants() {
     try {
         const response = await fetch('api.php?action=getTenants');
-        const tenants = await response.json();
+        const data = await response.json();
+
+        if (data.status !== 'success') {
+            throw new Error("Failed to fetch tenants");
+        }
+
+        const tenants = data.tenants;
         const tableBody = document.getElementById('gasUsageTable');
         tableBody.innerHTML = '';
 
         tenants.forEach(tenant => {
-            const today = new Date().toISOString().split('T')[0]; // Current date
-            let status = tenant.status;
-            if (status === 'unpaid' && today > tenant.due_date) {
-                status = 'overdue';
-            }
-
             const row = `
                 <tr class="border-b hover:bg-gray-100">
                     <td class="py-3 px-6 text-left">${tenant.username}</td>
@@ -59,7 +59,7 @@ async function fetchTenants() {
                         <input type="number" step="0.01" class="border p-2 w-full gas-amount" data-username="${tenant.username}">
                     </td>
                     <td class="py-3 px-6 text-left">${tenant.due_date || 'N/A'}</td>
-                    <td class="py-3 px-6 text-left font-bold ${status === 'overdue' ? 'text-red-500' : 'text-yellow-500'}">${status}</td>
+                    <td class="py-3 px-6 text-left font-bold ${tenant.status === 'overdue' ? 'text-red-500' : 'text-yellow-500'}">${tenant.status || 'N/A'}</td>
                     <td class="py-3 px-6 text-left">
                         <button class="bg-[#B82132] text-white px-4 py-2 rounded-2xl update-bill" data-username="${tenant.username}">Update Bill</button>
                     </td>
@@ -73,6 +73,7 @@ async function fetchTenants() {
         console.error('Error fetching tenants:', error);
     }
 }
+
 
 function attachEventListeners() {
     document.querySelectorAll('.update-bill').forEach(button => {

@@ -43,83 +43,37 @@ if ($action === 'login') {
     }
 }
 
-elseif ($action === 'updateGasBill') {
-    // Ensure the admin is logged in
-    if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
-        respond(['status' => 'error', 'message' => 'Unauthorized']);
-    }
-    
-    $data = json_decode(file_get_contents('php://input'), true);
-    $username = $data['username'] ?? null;
-    $gasConsumed = $data['gasConsumed'] ?? null;
-    $amount = $data['amount'] ?? null;
-    
-    if (!$username || $gasConsumed === null || $amount === null) {
-        respond(['status' => 'error', 'message' => 'Missing parameters']);
-    }
-    
-    // Set due date 10 days ahead of today
-    $dueDate = date('Y-m-d', strtotime('+10 days'));
-    
-    // Use PDO to check if a gas_usage record exists for the given tenant_username
-    $stmt = $pdo->prepare("SELECT * FROM gas_usage WHERE tenant_username = ?");
-    $stmt->execute([$username]);
-    
-    if ($stmt->rowCount() > 0) {
-        // Record exists; update it
-        $stmt = $pdo->prepare("UPDATE gas_usage SET gas_consumed = ?, amount = ?, due_date = ?, status = 'unpaid' WHERE tenant_username = ?");
-        $success = $stmt->execute([$gasConsumed, $amount, $dueDate, $username]);
-    } else {
-        // No record found; insert a new one
-        $stmt = $pdo->prepare("INSERT INTO gas_usage (tenant_username, gas_consumed, amount, due_date, status) VALUES (?,?,?,?, 'unpaid')");
-        $success = $stmt->execute([$username, $gasConsumed, $amount, $dueDate]);
-    }
-    
-    if ($success) {
-        respond(['status' => 'success', 'message' => 'Gas bill updated successfully!']);
-    } else {
-        respond(['status' => 'error', 'message' => 'Failed to update gas bill']);
-    }
-}
-
 elseif ($action === 'getTenants') {
-    // Build a query to fetch tenant details
-    // Here we assume:
-    // - The main tenant info is in "users" where role='tenant'
-    // - Extra fields (tenant name, block, door number, etc.) are in "tenant_fields"
-    // - Gas usage info is in "gas_usage" with a linking column tenant_username matching users.username
+    // Query to fetch tenant details and gas usage info
     $query = "SELECT 
+                u.id AS user_id,
                 u.username, 
                 tf.tenant_name, 
                 tf.block, 
                 tf.door_number AS door_no, 
                 u.phone, 
-                g.gas_consumed, 
-                g.amount, 
-                g.due_date, 
-                g.status 
+                COALESCE(g.gas_consumed, 0) AS gas_consumed, 
+                COALESCE(g.amount, 0) AS amount, 
+                COALESCE(g.due_date, 'N/A') AS due_date, 
+                COALESCE(g.status, 'N/A') AS status
               FROM users u
               LEFT JOIN tenant_fields tf ON u.id = tf.user_id
-              LEFT JOIN gas_usage g ON u.username = g.tenant_username
+              LEFT JOIN gas_usage g ON u.id = g.user_id
               WHERE u.role = 'tenant'";
               
-    // Use PDO for the query
+    // Use PDO for execution
     $stmt = $pdo->query($query);
-    $tenants = [];
+    $tenants = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        $tenants[] = $row;
-    }
-    
-    echo json_encode($tenants);
-    exit;
+    respond(['status' => 'success', 'tenants' => $tenants]);
 }
+
 
 /*---------------------------------------------------------
   1. Add a New Tenant
      Expects JSON body: { "username": "", "email": "", "phone": "", "password": "" }
 ---------------------------------------------------------*/
-if ($action === 'addTenant') {
+elseif ($action === 'addTenant') {
     $input = json_decode(file_get_contents("php://input"), true);
     if (empty($input['username']) || empty($input['email']) || empty($input['phone']) || empty($input['password'])) {
         respond(['status' => 'error', 'message' => 'Missing parameters']);
@@ -504,27 +458,195 @@ elseif ($action === 'markAsPaid') {
   7. Add Gas Usage
      Expects JSON body: { "username": "", "usage_date": "YYYY-MM-DD", "usage_amount": number }
 ---------------------------------------------------------*/
-elseif ($action === 'addGasUsage') {
-    $input = json_decode(file_get_contents("php://input"), true);
-    if (empty($input['username']) || empty($input['usage_date']) || $input['usage_amount'] === '') {
-        respond(['status' => 'error', 'message' => 'Missing parameters']);
-    }
+elseif ($action === 'updateGasBill') {
+    // Ensure the logged-in user is an admin
     if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
         respond(['status' => 'error', 'message' => 'Unauthorized']);
     }
-    $username = $input['username'];
-    $stmt = $pdo->prepare("SELECT id FROM users WHERE username=? AND role='tenant'");
+    
+    // Read the POST JSON input
+    $data = json_decode(file_get_contents('php://input'), true);
+    $username = $data['username'] ?? null;
+    $gasConsumed = $data['gasConsumed'] ?? null;
+    $amount = $data['amount'] ?? null;
+    
+    if (!$username || $gasConsumed === null || $amount === null) {
+        respond(['status' => 'error', 'message' => 'Missing parameters']);
+    }
+
+    // Fetch user_id from the users table using username
+    $stmt = $pdo->prepare("SELECT id FROM users WHERE username = ?");
     $stmt->execute([$username]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    
     if (!$user) {
-        respond(['status' => 'error', 'message' => 'Tenant not found']);
+        respond(['status' => 'error', 'message' => 'User not found']);
     }
-    $user_id = $user['id'];
-    $stmt = $pdo->prepare("INSERT INTO gas_usage (user_id, usage_date, usage_amount) VALUES (?,?,?)");
-    if ($stmt->execute([$user_id, $input['usage_date'], $input['usage_amount']])) {
-        respond(['status' => 'success', 'message' => 'Gas usage added successfully']);
+    
+    $userId = $user['id'];
+
+    // Set due date 10 days ahead of today
+    $dueDate = date('Y-m-d', strtotime('+5 days'));
+    $today = date('Y-m-d');
+
+    // If the current date is greater than the due date, set status as 'Overdue', otherwise 'unpaid'
+    $status = ($today > $dueDate) ? 'Overdue' : 'unpaid';
+
+    // Check if a gas_usage record exists for the given user_id
+    $stmt = $pdo->prepare("SELECT * FROM gas_usage WHERE user_id = ?");
+    $stmt->execute([$userId]);
+    
+    if ($stmt->rowCount() > 0) {
+        // Record exists; update it
+        $stmt = $pdo->prepare("UPDATE gas_usage SET gas_consumed = ?, amount = ?, due_date = ?, status = ? WHERE user_id = ?");
+        $success = $stmt->execute([$gasConsumed, $amount, $dueDate, $status, $userId]);
     } else {
-        respond(['status' => 'error', 'message' => 'Failed to add gas usage']);
+        // No record found; insert a new one
+        $stmt = $pdo->prepare("INSERT INTO gas_usage (user_id, gas_consumed, amount, due_date, status) VALUES (?, ?, ?, ?, ?)");
+        $success = $stmt->execute([$userId, $gasConsumed, $amount, $dueDate, $status]);
+    }
+    
+    if ($success) {
+        respond(['status' => 'success', 'message' => 'Gas bill updated successfully!']);
+    } else {
+        respond(['status' => 'error', 'message' => 'Failed to update gas bill']);
+    }
+}
+
+elseif ($action === 'getGasUsage') {
+    // Ensure the user is logged in and is a tenant
+    if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'tenant') {
+        respond(['status' => 'error', 'message' => 'Unauthorized']);
+    }
+    
+    $userId = $_SESSION['user']['id'];
+    $stmt = $pdo->prepare("
+        SELECT 
+            tf.tenant_name, 
+            tf.block, 
+            tf.door_number, 
+            tf.floor,
+            u.phone, 
+            gu.gas_consumed, 
+            gu.amount, 
+            gu.created_at AS bill_date, 
+            gu.due_date, 
+            gu.status 
+        FROM gas_usage gu
+        JOIN tenant_fields tf ON gu.user_id = tf.user_id
+        JOIN users u ON gu.user_id = u.id
+        WHERE gu.user_id = ?
+        ORDER BY gu.created_at DESC
+    ");
+    $stmt->execute([$userId]);
+    $gasUsage = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    respond(['status' => 'success', 'gas_usage' => $gasUsage]);
+}
+
+
+
+/**
+ * Create Gas Order API (for Razorpay integration)
+ */
+elseif ($action === 'createGasOrder') {
+    if (!isset($_SESSION['user'])) {
+        respond(['status' => 'error', 'message' => 'Unauthorized']);
+    }
+    $data = json_decode(file_get_contents("php://input"), true);
+    if (empty($data['gasUsageId']) || empty($data['amount'])) {
+        respond(['status'=>'error','message'=>'Missing parameters']);
+    }
+    $amount = $data['amount']; // in rupees
+    $amount_paise = $amount * 100;
+    $receipt = 'order_rcptid_' . uniqid();
+    $orderData = [
+       "amount" => $amount_paise,
+       "currency" => "INR",
+       "receipt" => $receipt,
+       "payment_capture" => 1
+    ];
+    $orderDataJson = json_encode($orderData);
+    $keyId = "rzp_test_QBNbWNS9QSRoaK";
+    $keySecret = "iuS4nffZT8HodgJEazNPmAXP";
+    
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, "https://api.razorpay.com/v1/orders");
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_USERPWD, $keyId . ":" . $keySecret);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $orderDataJson);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, array("Content-Type: application/json"));
+    $response = curl_exec($ch);
+    $err = curl_error($ch);
+    curl_close($ch);
+    if($err){
+       respond(['status'=>'error', 'message'=>'cURL Error: ' . $err]);
+    } else {
+       $responseData = json_decode($response, true);
+       if(isset($responseData['id'])){
+           respond(['status'=>'success', 'order_id'=>$responseData['id'], 'message'=>'Order created successfully']);
+       } else {
+           respond(['status'=>'error', 'message'=>'Order creation failed: ' . $response]);
+       }
+    }
+}
+/**
+ * Capture Gas Payment API
+ */
+elseif ($action === 'captureGasPayment') {
+    if (!isset($_SESSION['user'])) {
+       respond(['status' => 'error', 'message' => 'Unauthorized']);
+    }
+    $data = json_decode(file_get_contents("php://input"), true);
+    if (empty($data['razorpay_payment_id']) || empty($data['razorpay_order_id']) || empty($data['razorpay_signature']) || empty($data['gasUsageId'])) {
+       respond(['status'=>'error','message'=>'Missing parameters']);
+    }
+    $paymentId = $data['razorpay_payment_id'];
+    $gasUsageId = $data['gasUsageId'];
+    
+    // Retrieve the amount from the gas_usage table
+    $stmt = $pdo->prepare("SELECT amount FROM gas_usage WHERE id = ?");
+    $stmt->execute([$gasUsageId]);
+    $record = $stmt->fetch(PDO::FETCH_ASSOC);
+    if(!$record){
+       respond(['status'=>'error','message'=>'Gas usage record not found']);
+    }
+    $amount = $record['amount'];
+    $amount_paise = $amount * 100;
+    
+    $keyId = "YOUR_RAZORPAY_KEY_ID";
+    $keySecret = "YOUR_RAZORPAY_KEY_SECRET";
+    $captureUrl = "https://api.razorpay.com/v1/payments/{$paymentId}/capture";
+    $captureData = [
+       "amount" => $amount_paise,
+       "currency" => "INR"
+    ];
+    $captureDataJson = json_encode($captureData);
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $captureUrl);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_USERPWD, $keyId . ":" . $keySecret);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $captureDataJson);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, array("Content-Type: application/json"));
+    $response = curl_exec($ch);
+    $err = curl_error($ch);
+    curl_close($ch);
+    if($err){
+       respond(['status'=>'error', 'message'=>'cURL Error: ' . $err]);
+    } else {
+       $responseData = json_decode($response, true);
+       if(isset($responseData['status']) && $responseData['status'] === 'captured'){
+           // Update gas_usage table status to 'paid' and set paid_on to current time
+           $stmt = $pdo->prepare("UPDATE gas_usage SET status = 'paid', paid_on = NOW() WHERE id = ?");
+           if($stmt->execute([$gasUsageId])){
+               respond(['status'=>'success', 'message'=>'Gas bill paid successfully']);
+           } else {
+               respond(['status'=>'error', 'message'=>'Payment captured but failed to update record']);
+           }
+       } else {
+           respond(['status'=>'error', 'message'=>'Payment capture failed: ' . $response]);
+       }
     }
 }
 
