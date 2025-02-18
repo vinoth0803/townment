@@ -398,61 +398,7 @@ elseif ($action === 'getTotalTenants') {
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
     respond(['status' => 'success', 'total' => $row['total']]);
 }
-elseif ($action === 'getEBDebts') {
-    // Using PDO (assuming your connection is in $pdo)
-    $query = "SELECT u.username, tf.tenant_name, tf.block, tf.door_number AS door_no, u.phone, 
-                     COALESCE(eb.status, 'unpaid') as status
-              FROM users u
-              LEFT JOIN tenant_fields tf ON u.id = tf.user_id
-              LEFT JOIN eb_details eb ON u.id = eb.user_id
-              WHERE u.role = 'tenant'";
-    
-    $stmt = $pdo->query($query);
-    $tenants = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-    respond(['status' => 'success', 'tenants' => $tenants]);
-}
 
-elseif ($action === 'updateEBStatus') {
-    if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
-        respond(['status' => 'error', 'message' => 'Unauthorized']);
-    }
-
-    $data = json_decode(file_get_contents("php://input"), true);
-    $username = trim($data['username'] ?? '');
-    $status = strtolower(trim($data['status'] ?? ''));
-
-    // Validate input
-    if (!$username || !in_array($status, ['paid', 'unpaid'])) {
-        respond(['status' => 'error', 'message' => 'Invalid parameters']);
-    }
-
-    // Get user_id from username
-    $stmt = $pdo->prepare("SELECT id FROM users WHERE username = ? AND role = 'tenant'");
-    $stmt->execute([$username]);
-    $user = $stmt->fetch(PDO::FETCH_ASSOC);
-    
-    if (!$user) {
-        respond(['status' => 'error', 'message' => 'Tenant not found']);
-    }
-
-    $user_id = $user['id'];
-
-    // Insert or update EB status using efficient query
-    $stmt = $pdo->prepare("
-        INSERT INTO eb_details (user_id, status) 
-        VALUES (?, ?) 
-        ON DUPLICATE KEY UPDATE status = VALUES(status)
-    ");
-    
-    $success = $stmt->execute([$user_id, $status]);
-
-    if ($success) {
-        respond(['status' => 'success', 'message' => 'EB status updated successfully']);
-    } else {
-        respond(['status' => 'error', 'message' => 'Failed to update EB status']);
-    }
-}
 
 
 
@@ -490,33 +436,69 @@ elseif ($action === 'getLatestTenants') {
   6. Update EB Details
      Expects JSON body: { "username": "", "detail": "" }
 ---------------------------------------------------------*/
-elseif ($action === 'updateEBDetails') {
-    $input = json_decode(file_get_contents("php://input"), true);
-    if (empty($input['username']) || empty($input['detail'])) {
-        respond(['status' => 'error', 'message' => 'Missing parameters']);
-    }
-    if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
+/*Eb update------------------------------------------------------- */
+elseif ($action === 'getEBDebts') {
+    // (Ensure admin authentication here)
+    // Join tenant_fields and eb_bill (using a LEFT JOIN so that if no eb_bill record exists, we assume "unpaid")
+    $stmt = $pdo->query("
+        SELECT tf.tenant_name, tf.block, tf.door_number, tf.floor, eb.paid_on, 
+               COALESCE(eb.status, 'unpaid') as status 
+        FROM tenant_fields tf 
+        LEFT JOIN eb_bill eb ON tf.user_id = eb.user_id
+        ORDER BY tf.tenant_name ASC
+    ");
+    $tenants = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    respond(['status' => 'success', 'tenants' => $tenants]);
+}
+elseif ($action === 'getTenantEBDebt') {
+    // Ensure the logged-in user is a tenant
+    if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'tenant') {
         respond(['status' => 'error', 'message' => 'Unauthorized']);
     }
-    $username = $input['username'];
-    $stmt = $pdo->prepare("SELECT id FROM users WHERE username=? AND role='tenant'");
-    $stmt->execute([$username]);
-    $user = $stmt->fetch(PDO::FETCH_ASSOC);
-    if (!$user) {
-        respond(['status' => 'error', 'message' => 'Tenant not found']);
-    }
-    $user_id = $user['id'];
-    $stmt = $pdo->prepare("SELECT id FROM eb_details WHERE user_id=?");
-    $stmt->execute([$user_id]);
-    if ($stmt->rowCount() > 0) {
-        $stmt = $pdo->prepare("UPDATE eb_details SET detail=? WHERE user_id=?");
-        $success = $stmt->execute([$input['detail'], $user_id]);
-    } else {
-        $stmt = $pdo->prepare("INSERT INTO eb_details (user_id, detail) VALUES (?,?)");
-        $success = $stmt->execute([$user_id, $input['detail']]);
-    }
-    respond($success ? ['status' => 'success', 'message' => 'EB details updated successfully'] : ['status' => 'error', 'message' => 'Failed to update EB details']);
+    $tenantId = $_SESSION['user']['id'];
+    // Join tenant_fields and eb_bill for the logged-in tenant.
+    $stmt = $pdo->prepare("
+        SELECT tf.tenant_name, tf.block, tf.door_number, tf.floor, u.phone, 
+               COALESCE(eb.status, 'unpaid') as status, eb.paid_on 
+        FROM tenant_fields tf 
+        JOIN users u ON tf.user_id = u.id 
+        LEFT JOIN eb_bill eb ON tf.user_id = eb.user_id 
+        WHERE tf.user_id = ?
+    ");
+    $stmt->execute([$tenantId]);
+    $eb = $stmt->fetch(PDO::FETCH_ASSOC);
+    respond(['status' => 'success', 'eb' => $eb]);
 }
+/*Marks as paid---------------------------- */
+elseif ($action === 'markAsPaid') {
+    // Ensure the logged-in user is a tenant
+    if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'tenant') {
+        respond(['status' => 'error', 'message' => 'Unauthorized']);
+    }
+    $tenantId = $_SESSION['user']['id'];
+
+    // Check if an EB bill record already exists for this tenant
+    $stmt = $pdo->prepare("SELECT id FROM eb_bill WHERE user_id = ?");
+    $stmt->execute([$tenantId]);
+    
+    if ($stmt->rowCount() > 0) {
+        // Record exists, so update it
+        $updateStmt = $pdo->prepare("UPDATE eb_bill SET status = 'paid', paid_on = NOW() WHERE user_id = ?");
+        $success = $updateStmt->execute([$tenantId]);
+    } else {
+        // No record exists, so insert a new one
+        $insertStmt = $pdo->prepare("INSERT INTO eb_bill (user_id, status, paid_on) VALUES (?, 'paid', NOW())");
+        $success = $insertStmt->execute([$tenantId]);
+    }
+
+    if ($success) {
+        respond(['status' => 'success', 'message' => 'EB bill marked as paid']);
+    } else {
+        respond(['status' => 'error', 'message' => 'Failed to update EB bill']);
+    }
+}
+
+
 
 /*---------------------------------------------------------
   7. Add Gas Usage
