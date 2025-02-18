@@ -51,10 +51,10 @@ Loading tenant details...</p>
     <div class="w-full md:w-1/2 space-y-6">
       <!-- Account Info Card -->
       <div class="bg-white p-6 rounded-xl shadow">
-        <h2 class="text-xl font-bold text-[#B82132] mb-4">Account Information</h2>
-        <p class="text-gray-700"><strong>Username:</strong> <?php echo htmlspecialchars($_SESSION['user']['username'] ?? 'N/A'); ?></p>
-        <p class="text-gray-700"><strong>Email:</strong> <?php echo htmlspecialchars($_SESSION['user']['email'] ?? 'N/A'); ?></p>
-        <p class="text-gray-700"><strong>Phone:</strong> <?php echo htmlspecialchars($_SESSION['user']['phone'] ?? 'N/A'); ?></p>
+        <h2  class="text-xl font-bold text-[#B82132] mb-4">Account Information</h2>
+        <p  id="profileUsername" class="text-gray-700"></p>
+        <p id="profileEmail" class="text-gray-700"></p>
+        <p id="profilePhone" class="text-gray-700"></p>
       </div>
       <!-- Update Password Card -->
       <div class="bg-white p-6 rounded-xl shadow">
@@ -84,7 +84,23 @@ Loading tenant details...</p>
 function toggleUpdatePhotoForm() {
   document.getElementById('updatePhotoForm').classList.toggle('hidden');
 }
-
+// Fetch tenant profile details via REST API
+async function loadTenantProfile(){
+    try {
+      const res = await fetch('api.php?action=getTenantProfile');
+      const data = await res.json();
+      if(data.status === 'success'){
+        const profile = data.profile;
+        document.getElementById('profileUsername').innerText = "Username: " + profile.username;
+        document.getElementById('profileEmail').innerText = "Email: " + profile.email;
+        document.getElementById('profilePhone').innerText = "Phone: " + profile.phone;
+      } else {
+        console.error("Error loading profile:", data.message);
+      }
+    } catch(error){
+      console.error("Error fetching tenant profile:", error);
+    }
+  }
 // Fetch tenant additional fields via API
 async function loadTenantFields() {
   try {
@@ -170,7 +186,11 @@ setInterval(updateDateTime, 1000);
 updateDateTime();
 
 // On page load, fetch tenant additional fields via API
-window.addEventListener('load', loadTenantFields);
+window.addEventListener('load', function() {
+  loadTenantFields();
+  loadTenantProfile();
+});
+
 </script>
 
 <?php include 'tenant_footer.php'; ?>

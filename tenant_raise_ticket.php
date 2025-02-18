@@ -74,7 +74,7 @@ async function loadTickets() {
         `;
       });
     } else {
-      html = `<tr><td colspan="3" class="text-center py-4">No tickets found.</td></tr>`;
+      html = `<tr><td colspan="3" class="text-center py-4">No tickets Raised.</td></tr>`;
     }
     document.getElementById('ticketsTable').innerHTML = html;
   } catch (error) {
