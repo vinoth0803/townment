@@ -562,7 +562,7 @@ elseif ($action === 'sendNotification') {
 /*---------------------------------------------------------
  10. Tickets: Get All Raised Tickets
 ---------------------------------------------------------*/
-elseif ($action === 'getTickets') {
+elseif ($action === 'getallTickets') {
     if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
         respond(['status' => 'error', 'message' => 'Unauthorized']);
     }
@@ -642,6 +642,47 @@ elseif ($action === 'getNewTickets') {
     } catch (Exception $e) {
         respond(['status' => 'error', 'message' => $e->getMessage()]);
     }
+}
+elseif ($action === 'getTickets') {
+    // Ensure the user is logged in
+    if (!isset($_SESSION['user'])) {
+        respond(['status' => 'error', 'message' => 'Unauthorized']);
+    }
+    
+    $user = $_SESSION['user'];
+    $params = [];
+    $query = "SELECT raised_date, issue, status FROM tickets ";
+    
+    // If the user is a tenant, restrict to only their tickets.
+    if ($user['role'] === 'tenant') {
+        $query .= "WHERE user_id = ? ";
+        $params[] = $user['id'];
+    }
+    
+    // If a status filter is provided (e.g., opened, inprogress, closed)
+    if (!empty($_GET['status'])) {
+        // Add WHERE or AND depending on previous clause
+        $query .= (strpos($query, 'WHERE') === false ? "WHERE " : "AND ");
+        $query .= "status = ? ";
+        $params[] = $_GET['status'];
+    }
+    
+    // If a period filter is provided (in days)
+    if (!empty($_GET['period'])) {
+        $period = (int) $_GET['period'];
+        $thresholdDate = date('Y-m-d H:i:s', strtotime("-{$period} days"));
+        $query .= (strpos($query, 'WHERE') === false ? "WHERE " : "AND ");
+        $query .= "raised_date >= ? ";
+        $params[] = $thresholdDate;
+    }
+    
+    $query .= "ORDER BY raised_date DESC";
+    
+    $stmt = $pdo->prepare($query);
+    $stmt->execute($params);
+    $tickets = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    respond(['status' => 'success', 'tickets' => $tickets]);
 }
 
 /*---------------------------------------------------------

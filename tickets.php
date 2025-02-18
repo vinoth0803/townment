@@ -8,7 +8,7 @@ include 'admin_header.php';
 </div>
 <script>
   async function loadTickets(){
-    const res = await fetch('api.php?action=getTickets');
+    const res = await fetch('api.php?action=getallTickets');
     const data = await res.json();
     let tickets = data.tickets;
     let html = '';
