@@ -62,15 +62,15 @@ Loading tenant details...</p>
         <form id="updatePasswordForm" class="space-y-4">
           <div>
             <label class="block text-gray-700">Old Password</label>
-            <input type="password" name="old_password" required class="w-full border border-gray-300 p-2 rounded-2xl">
+            <input type="password" name="old_password" autocomplete="current-password" required class="w-full border border-gray-300 p-2 rounded-2xl">
           </div>
           <div>
             <label class="block text-gray-700">New Password</label>
-            <input type="password" name="new_password" required class="w-full border border-gray-300 p-2 rounded-2xl">
+            <input type="password" name="new_password" autocomplete="new-password" required class="w-full border border-gray-300 p-2 rounded-2xl">
           </div>
           <div>
             <label class="block text-gray-700">Confirm New Password</label>
-            <input type="password" name="confirm_password" required class="w-full border border-gray-300 p-2 rounded-2xl">
+            <input type="password" name="confirm_password" autocomplete="new-password" required class="w-full border border-gray-300 p-2 rounded-2xl">
           </div>
           <button type="submit" class="w-full bg-[#B82132] hover:bg-[#8E1616] text-white p-2 rounded-full">Update Password</button>
         </form>

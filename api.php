@@ -518,7 +518,7 @@ elseif ($action === 'getGasUsage') {
     if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'tenant') {
         respond(['status' => 'error', 'message' => 'Unauthorized']);
     }
-    
+
     $userId = $_SESSION['user']['id'];
     $stmt = $pdo->prepare("
         SELECT 
@@ -529,7 +529,7 @@ elseif ($action === 'getGasUsage') {
             u.phone, 
             gu.gas_consumed, 
             gu.amount, 
-            gu.created_at AS bill_date, 
+            gu.created_at AS bill_date,  -- Ensure this alias is used in JS
             gu.due_date, 
             gu.status 
         FROM gas_usage gu
@@ -545,6 +545,7 @@ elseif ($action === 'getGasUsage') {
 
 
 
+
 /**
  * Create Gas Order API (for Razorpay integration)
  */
@@ -553,14 +554,14 @@ elseif ($action === 'createGasOrder') {
         respond(['status' => 'error', 'message' => 'Unauthorized']);
     }
     $data = json_decode(file_get_contents("php://input"), true);
-    if (empty($data['gasUsageId']) || empty($data['amount'])) {
+    // Changed parameter key from gasUsageId to id
+    if (empty($data['id']) || empty($data['amount'])) {
         respond(['status'=>'error','message'=>'Missing parameters']);
     }
     $amount = $data['amount']; // in rupees
-    $amount_paise = $amount * 100;
     $receipt = 'order_rcptid_' . uniqid();
     $orderData = [
-       "amount" => $amount_paise,
+       "amount" => $amount,
        "currency" => "INR",
        "receipt" => $receipt,
        "payment_capture" => 1
@@ -598,11 +599,12 @@ elseif ($action === 'captureGasPayment') {
        respond(['status' => 'error', 'message' => 'Unauthorized']);
     }
     $data = json_decode(file_get_contents("php://input"), true);
-    if (empty($data['razorpay_payment_id']) || empty($data['razorpay_order_id']) || empty($data['razorpay_signature']) || empty($data['gasUsageId'])) {
+    // Changed parameter key from gasUsageId to id
+    if (empty($data['razorpay_payment_id']) || empty($data['razorpay_order_id']) || empty($data['razorpay_signature']) || empty($data['id'])) {
        respond(['status'=>'error','message'=>'Missing parameters']);
     }
     $paymentId = $data['razorpay_payment_id'];
-    $gasUsageId = $data['gasUsageId'];
+    $gasUsageId = $data['id']; // Using the table's id field
     
     // Retrieve the amount from the gas_usage table
     $stmt = $pdo->prepare("SELECT amount FROM gas_usage WHERE id = ?");
@@ -614,8 +616,8 @@ elseif ($action === 'captureGasPayment') {
     $amount = $record['amount'];
     $amount_paise = $amount * 100;
     
-    $keyId = "YOUR_RAZORPAY_KEY_ID";
-    $keySecret = "YOUR_RAZORPAY_KEY_SECRET";
+    $keyId = "YOUR_RAZORPAY_KEY_ID";      // Replace with your Razorpay Key ID
+    $keySecret = "YOUR_RAZORPAY_KEY_SECRET"; // Replace with your Razorpay Key Secret
     $captureUrl = "https://api.razorpay.com/v1/payments/{$paymentId}/capture";
     $captureData = [
        "amount" => $amount_paise,
@@ -637,7 +639,7 @@ elseif ($action === 'captureGasPayment') {
     } else {
        $responseData = json_decode($response, true);
        if(isset($responseData['status']) && $responseData['status'] === 'captured'){
-           // Update gas_usage table status to 'paid' and set paid_on to current time
+           // Update gas_usage table: mark as paid and set paid_on to current time
            $stmt = $pdo->prepare("UPDATE gas_usage SET status = 'paid', paid_on = NOW() WHERE id = ?");
            if($stmt->execute([$gasUsageId])){
                respond(['status'=>'success', 'message'=>'Gas bill paid successfully']);
@@ -649,6 +651,7 @@ elseif ($action === 'captureGasPayment') {
        }
     }
 }
+
 
 /*---------------------------------------------------------
   8. Notification: Get Notifications

@@ -35,21 +35,15 @@ async function loadGasUsage() {
     const res = await fetch('api.php?action=getGasUsage');
     const data = await res.json();
     let html = '';
-    if(data.status === 'success' && data.gas_usage && data.gas_usage.length > 0) {
+
+    if (data.status === 'success' && data.gas_usage && data.gas_usage.length > 0) {
       data.gas_usage.forEach(item => {
-        // Determine status styling based on status and current date
+        // Use status from API directly
         let statusText = item.status;
-        let statusClass = 'text-red-600'; // default unpaid
-        const now = new Date();
-        const currentDay = now.getDate();
-        if(item.status === 'paid') {
-          statusText = 'Paid';
-          statusClass = 'text-green-600';
-        } else if (currentDay > 10) {
-          statusText = 'Overdue';
-          statusClass = 'text-yellow-600';
-        }
+        let statusClass = item.status === 'paid' ? 'text-green-600' : 'text-red-600';
+
         let paidOn = item.paid_on ? item.paid_on : 'N/A';
+
         html += `
           <tr class="border-b hover:bg-gray-100">
             <td class="py-3 px-6">${item.tenant_name}</td>
@@ -58,7 +52,7 @@ async function loadGasUsage() {
             <td class="py-3 px-6">${item.phone}</td>
             <td class="py-3 px-6">${item.gas_consumed}</td>
             <td class="py-3 px-6">${parseFloat(item.amount).toFixed(2)}</td>
-            <td class="py-3 px-6">${item.created_at}</td>
+            <td class="py-3 px-6">${item.bill_date}</td> <!-- Updated from created_at -->
             <td class="py-3 px-6">${item.due_date}</td>
             <td class="py-3 px-6 text-center font-bold ${statusClass}">${statusText}</td>
             <td class="py-3 px-6 text-center">
@@ -70,6 +64,7 @@ async function loadGasUsage() {
     } else {
       html = `<tr><td colspan="10" class="text-center py-4">No gas usage records found.</td></tr>`;
     }
+
     document.getElementById('gasUsageTableBody').innerHTML = html;
   } catch (error) {
     console.error("Error fetching gas usage:", error);
@@ -79,11 +74,12 @@ async function loadGasUsage() {
 
 async function payNow(gasUsageId, amount) {
   try {
-    // Create an order by calling the API endpoint (you must implement this endpoint)
+    // Create an order by calling the API endpoint.
+    // Changed the JSON key from gasUsageId to id.
     const orderRes = await fetch('api.php?action=createGasOrder', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ gasUsageId, amount })
+      body: JSON.stringify({ id: gasUsageId, amount })
     });
     const orderData = await orderRes.json();
     if(orderData.status !== 'success') {
@@ -93,18 +89,19 @@ async function payNow(gasUsageId, amount) {
     
     const options = {
       "key": "rzp_test_QBNbWNS9QSRoaK", // Replace with your Razorpay key id
-      "amount": amount * 100, // amount in paise
+      "amount": amount, // amount in paise
       "currency": "INR",
       "name": "TOWNMENT Gas Bill",
       "description": "Pay your gas bill",
-      "order_id": orderData.order_id, // order id returned by createGasOrder API
+      "order_id": orderData.order_id, // Order id returned by createGasOrder API
       "handler": async function(response) {
-        // After successful payment, capture the payment by calling the API endpoint (you must implement this endpoint)
+        // Capture the payment after successful transaction
+        // Updated JSON key from gasUsageId to id.
         const captureRes = await fetch('api.php?action=captureGasPayment', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            gasUsageId,
+            id: gasUsageId,
             razorpay_payment_id: response.razorpay_payment_id,
             razorpay_order_id: response.razorpay_order_id,
             razorpay_signature: response.razorpay_signature
@@ -134,6 +131,7 @@ async function payNow(gasUsageId, amount) {
     alert("Error processing payment.");
   }
 }
+
 
 window.onload = loadGasUsage;
 </script>
