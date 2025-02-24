@@ -32,6 +32,7 @@ include 'tenant_header.php';
 <script>
 async function loadGasUsage() {
   try {
+    // Append a cache buster to ensure fresh data
     const res = await fetch('api.php?action=getGasUsage&_=' + Date.now());
     const data = await res.json();
     let html = '';
@@ -53,8 +54,7 @@ async function loadGasUsage() {
             <td class="py-3 px-6">${item.due_date}</td>
             <td class="py-3 px-6 text-center font-bold ${statusClass}">${statusText}</td>
             <td class="py-3 px-6 text-center">
-              ${
-                item.status !== 'paid'
+              ${ item.status !== 'paid'
                   ? `<button onclick="payNow('${item.id}', ${item.amount}, '${item.tenant_name}', '${item.email}', '${item.phone}')" class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition-colors">Pay Now</button>`
                   : 'Paid'
               }
@@ -94,6 +94,7 @@ async function payNow(recordId, amount, tenantName, tenantEmail, tenantPhone) {
       "description": "Pay your gas bill",
       "order_id": orderData.order_id,
       "handler": async function(response) {
+        // Capture the payment and update the gas usage record
         const captureRes = await fetch('api.php?action=captureGasPayment', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -128,7 +129,6 @@ async function payNow(recordId, amount, tenantName, tenantEmail, tenantPhone) {
     alert("Error processing payment.");
   }
 }
-
 
 window.onload = loadGasUsage;
 </script>

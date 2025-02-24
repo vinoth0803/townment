@@ -601,6 +601,7 @@ elseif ($action === 'createGasOrder') {
        }
     }
 }
+
 /**
  * Capture Gas Payment API
  */
@@ -623,8 +624,8 @@ elseif ($action === 'captureGasPayment') {
        respond(['status'=>'error','message'=>'Missing parameters']);
     }
     
-    // Manual signature verification using HMAC-SHA256
-    $keySecret = "iuS4nffZT8HodgJEazNPmAXP"; // Your Razorpay key secret
+    // Verify the payment signature manually.
+    $keySecret = "iuS4nffZT8HodgJEazNPmAXP";
     $generated_signature = hash_hmac(
         'sha256',
         $data['razorpay_order_id'] . '|' . $data['razorpay_payment_id'],
@@ -691,15 +692,18 @@ elseif ($action === 'captureGasPayment') {
     }
     
     if ($updateSuccess) {
-       // Update the gas_usage record (only if status is not already "paid").
-       $stmtUpdate = $pdo->prepare("UPDATE gas_usage SET status = 'paid', paid_on = NOW() WHERE id = :id AND user_id = :uid");
+       // Insert the payment record into the "payments" table.
+       $stmtInsert = $pdo->prepare("INSERT INTO payments (user_id, payment_id) VALUES (?, ?)");
+       $stmtInsert->execute([$userId, $paymentId]);
+       
+       // Update the gas_usage record to mark it as paid.
+       $stmtUpdate = $pdo->prepare("UPDATE gas_usage SET status = 'paid', paid_on = NOW() WHERE id = :id AND user_id = :uid AND status <> 'paid'");
        $stmtUpdate->execute([':id' => $recordId, ':uid' => $userId]);
        
        if ($stmtUpdate->rowCount() > 0) {
            respond(['status'=>'success', 'message'=>'Gas bill paid successfully']);
        } else {
-            error_log("Update failed. No rows affected. Record ID: $recordId, User ID: $userId");       
-           // Fallback: re-check the record to see if it’s already updated.
+           // Fallback: re-check the record status.
            $stmtCheck = $pdo->prepare("SELECT status FROM gas_usage WHERE id = :id");
            $stmtCheck->execute([':id' => $recordId]);
            $updatedRecord = $stmtCheck->fetch(PDO::FETCH_ASSOC);
@@ -726,10 +730,17 @@ elseif ($action === 'fetchPaymentDetails') {
     }
     $paymentId = $data['razorpay_payment_id'];
     
-    // Razorpay API credentials
+    // Check that the payment exists in the "payments" table.
+    $stmtPayment = $pdo->prepare("SELECT * FROM payments WHERE payment_id = ?");
+    $stmtPayment->execute([$paymentId]);
+    $paymentRecord = $stmtPayment->fetch(PDO::FETCH_ASSOC);
+    if (!$paymentRecord) {
+       respond(['status' => 'error', 'message' => 'Payment record not found in database']);
+    }
+    
+    // Fetch payment details from Razorpay.
     $keyId = "rzp_test_QBNbWNS9QSRoaK";
     $keySecret = "iuS4nffZT8HodgJEazNPmAXP";
-    
     $fetchUrl = "https://api.razorpay.com/v1/payments/{$paymentId}";
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, $fetchUrl);
@@ -745,7 +756,15 @@ elseif ($action === 'fetchPaymentDetails') {
        respond(['status'=>'error', 'message'=>'cURL Error during fetch: ' . $err]);
     }
     
-    respond(['status'=>'success', 'paymentDetails' => json_decode($fetchResponse, true)]);
+    $paymentDetails = json_decode($fetchResponse, true);
+    
+    // If Razorpay confirms the payment is captured, update the latest unpaid gas_usage record for this user.
+    if (isset($paymentDetails['status']) && $paymentDetails['status'] === 'captured') {
+        $stmtUpdate = $pdo->prepare("UPDATE gas_usage SET status = 'paid', paid_on = NOW() WHERE user_id = ? AND status <> 'paid' ORDER BY created_at DESC LIMIT 1");
+        $stmtUpdate->execute([$paymentRecord['user_id']]);
+    }
+    
+    respond(['status'=>'success', 'paymentDetails' => $paymentDetails]);
 }
 
 
