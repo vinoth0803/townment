@@ -32,17 +32,14 @@ include 'tenant_header.php';
 <script>
 async function loadGasUsage() {
   try {
-    const res = await fetch('api.php?action=getGasUsage');
+    const res = await fetch('api.php?action=getGasUsage&_=' + Date.now());
     const data = await res.json();
     let html = '';
 
     if (data.status === 'success' && data.gas_usage && data.gas_usage.length > 0) {
       data.gas_usage.forEach(item => {
-        // Use status from API directly
         let statusText = item.status;
         let statusClass = item.status === 'paid' ? 'text-green-600' : 'text-red-600';
-
-        let paidOn = item.paid_on ? item.paid_on : 'N/A';
 
         html += `
           <tr class="border-b hover:bg-gray-100">
@@ -52,11 +49,15 @@ async function loadGasUsage() {
             <td class="py-3 px-6">${item.phone}</td>
             <td class="py-3 px-6">${item.gas_consumed}</td>
             <td class="py-3 px-6">${parseFloat(item.amount).toFixed(2)}</td>
-            <td class="py-3 px-6">${item.bill_date}</td> <!-- Updated from created_at -->
+            <td class="py-3 px-6">${item.bill_date}</td>
             <td class="py-3 px-6">${item.due_date}</td>
             <td class="py-3 px-6 text-center font-bold ${statusClass}">${statusText}</td>
             <td class="py-3 px-6 text-center">
-              ${ item.status !== 'paid' ? `<button onclick="payNow('${item.id}', ${item.amount})" class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition-colors">Pay Now</button>` : 'Paid' }
+              ${
+                item.status !== 'paid'
+                  ? `<button onclick="payNow('${item.id}', ${item.amount}, '${item.tenant_name}', '${item.email}', '${item.phone}')" class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition-colors">Pay Now</button>`
+                  : 'Paid'
+              }
             </td>
           </tr>
         `;
@@ -72,43 +73,39 @@ async function loadGasUsage() {
   }
 }
 
-async function payNow(gasUsageId, amount) {
+async function payNow(recordId, amount, tenantName, tenantEmail, tenantPhone) {
   try {
-    // Create an order by calling the API endpoint.
-    // Changed the JSON key from gasUsageId to id.
+    // Create an order using the record id.
     const orderRes = await fetch('api.php?action=createGasOrder', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: gasUsageId, amount })
+      body: JSON.stringify({ id: recordId })
     });
     const orderData = await orderRes.json();
-    if(orderData.status !== 'success') {
+    if (orderData.status !== 'success') {
       alert('Order creation failed: ' + orderData.message);
       return;
     }
     
     const options = {
-      "key": "rzp_test_QBNbWNS9QSRoaK", // Replace with your Razorpay key id
-      "amount": amount, // amount in paise
+      "key": "rzp_test_QBNbWNS9QSRoaK",
       "currency": "INR",
-      "name": "TOWNMENT Gas Bill",
+      "name": tenantName,
       "description": "Pay your gas bill",
-      "order_id": orderData.order_id, // Order id returned by createGasOrder API
+      "order_id": orderData.order_id,
       "handler": async function(response) {
-        // Capture the payment after successful transaction
-        // Updated JSON key from gasUsageId to id.
         const captureRes = await fetch('api.php?action=captureGasPayment', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            id: gasUsageId,
+            id: recordId,
             razorpay_payment_id: response.razorpay_payment_id,
             razorpay_order_id: response.razorpay_order_id,
             razorpay_signature: response.razorpay_signature
           })
         });
         const captureData = await captureRes.json();
-        if(captureData.status === 'success') {
+        if (captureData.status === 'success') {
           alert("Gas bill paid successfully");
           loadGasUsage();
         } else {
@@ -116,9 +113,9 @@ async function payNow(gasUsageId, amount) {
         }
       },
       "prefill": {
-        "name": "Tenant Name", // Optionally fill tenant name from session if available
-        "email": "tenant@example.com", // Replace with tenant email
-        "contact": "1234567890" // Replace with tenant phone number
+        "name": tenantName,
+        "email": tenantEmail,
+        "contact": tenantPhone
       },
       "theme": {
         "color": "#B82132"
