@@ -272,8 +272,8 @@ $profile_photo = $photoRecord && !empty($photoRecord['photo_path'])
     <!-- Logout at bottom -->
     <div class=" mt-5  ">
       <a id="logoutBtn" href="logout.php" class="flex items-center px-2 py-1 hover:bg-white hover:text-[#B82132] transition-colors duration-300">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 rotate">
-  <path stroke-linecap="round" stroke-linejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 swing">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
 </svg>
         <span class="ml-2">Logout</span>
       </a>
@@ -345,7 +345,7 @@ $profile_photo = $photoRecord && !empty($photoRecord['photo_path'])
     <div class="mt-5">
       <a id="mobileLogoutBtn" href="logout.php" class="flex items-center px-2 py-1 text-white hover:bg-white hover:text-[#B82132] transition-colors duration-300">
       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6 swing">
-  <path stroke-linecap="round" stroke-linejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
+  <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
 </svg>
         <span class="ml-2">Logout</span>
       </a>

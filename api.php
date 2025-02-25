@@ -773,7 +773,7 @@ elseif ($action === 'fetchPaymentDetails') {
   8. Notification: Get Notifications
 ---------------------------------------------------------*/
 elseif ($action === 'getNotifications') {
-    if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
+    if (!isset($_SESSION['user']) || !in_array($_SESSION['user']['role'], ['admin', 'tenant'])) {
         respond(['status' => 'error', 'message' => 'Unauthorized']);
     }
     $stmt = $pdo->query("SELECT id, message, created_at FROM notifications ORDER BY created_at DESC");
