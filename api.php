@@ -7,7 +7,13 @@ function respond($data) {
     echo json_encode($data);
     exit;
 }
-
+// Load .env file
+if (file_exists(__DIR__ . '/.env')) {
+    $env = parse_ini_file(__DIR__ . '/.env');
+    if ($env && isset($env['BREVO_API_KEY'])) {
+        putenv("BREVO_API_KEY=" . $env['BREVO_API_KEY']);
+    }
+}
 $action = $_GET['action'] ?? '';
 // LOGIN API
 if ($action === 'login') {
@@ -787,16 +793,79 @@ elseif ($action === 'getNotifications') {
 ---------------------------------------------------------*/
 elseif ($action === 'sendNotification') {
     $input = json_decode(file_get_contents("php://input"), true);
+    
+    // Check for empty message
     if (empty($input['message'])) {
         respond(['status' => 'error', 'message' => 'Message required']);
     }
+    
+    // Ensure the user is an admin
     if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
         respond(['status' => 'error', 'message' => 'Unauthorized']);
     }
-    // Insert only one notification since the type is no longer needed.
+    
+    // 1 Insert the notification into the database
     $stmt = $pdo->prepare("INSERT INTO notifications (message) VALUES (?)");
     $stmt->execute([$input['message']]);
-    respond(['status' => 'success', 'message' => 'Notification sent successfully']);
+    
+    // 2 Fetch all tenant emails and names.
+    // Adjust this query based on your actual table structure.
+    $query = "SELECT u.email, tf.tenant_name 
+              FROM users u 
+              INNER JOIN tenant_fields tf ON u.id = tf.user_id";
+    $stmt = $pdo->query($query);
+    $recipients = [];
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        // Make sure both email and tenant name exist.
+        if (!empty($row['email']) && !empty($row['tenant_name'])) {
+            $recipients[] = [
+                "email" => $row['email'],
+                "name"  => $row['tenant_name']
+            ];
+        }
+    }
+    
+    // Check if there are recipients
+    if (empty($recipients)) {
+        respond(['status' => 'error', 'message' => 'No tenant emails found to send notification']);
+    }
+    
+    // 3 Prepare the email data for Brevo
+    $apiKey = getenv('BREVO_API_KEY'); // Replace with your actual Brevo API key
+    $emailData = [
+        "sender" => [
+            "name"  => "Townment Admin Notification",           // Customize as needed
+            "email" => "vinothkrish0803@gmail.com"              // Replace with your verified sender email
+        ],
+        "to" => $recipients,
+        "subject" => "New Notification from Admin",
+        // Convert newlines to <br> and escape HTML characters
+        "htmlContent" => "<p>" . nl2br(htmlentities($input['message'])) . "</p>"
+    ];
+    
+    // 4 Send the email using Brevo's REST API (using cURL)
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, "https://api.brevo.com/v3/smtp/email");
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($emailData));
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        "accept: application/json",
+        "api-key: $apiKey",
+        "content-type: application/json"
+    ]);
+    
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    
+    // 5 Check for errors in the API call
+    if ($httpCode >= 200 && $httpCode < 300) {
+        respond(['status' => 'success', 'message' => 'Notification sent successfully']);
+    } else {
+        // Log the error details as needed and send an error response.
+        respond(['status' => 'error', 'message' => 'Notification saved but email sending failed', 'api_response' => json_decode($response, true)]);
+    }
 }
 
 /*---------------------------------------------------------
