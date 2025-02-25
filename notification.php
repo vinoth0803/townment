@@ -2,28 +2,33 @@
 $pageTitle = "Notification - TOWNMENT";
 include 'admin_header.php';
 ?>
-<div class="flex-1 p-6 overflow-auto">
-  <h1 class="text-2xl font-bold mb-4">Notification</h1>
-  <div class="grid grid-cols-2 gap-4">
+<div class="flex-1 p-6 bg-gray-100 min-h-screen">
+  <h1 class="text-3xl font-extrabold text-gray-900 mb-6">Notifications</h1>
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
     <!-- Left Column: List Notifications -->
     <div>
-      <h2 class="text-xl mb-2">Notifications</h2>
-      <div id="notificationList" class="space-y-2"></div>
+      <h2 class="text-2xl font-bold text-gray-800 mb-4">Notification List</h2>
+      <div id="notificationList" class="space-y-4">
+        <!-- Notifications will load here -->
+      </div>
     </div>
     <!-- Right Column: Send Notification Form -->
     <div>
-      <h2 class="text-xl mb-2">Send Notification to All Residents</h2>
-      <form id="sendNotificationForm" class="space-y-4">
+      <h2 class="text-2xl font-bold text-gray-800 mb-4">Send Notification to All Residents</h2>
+      <form id="sendNotificationForm" class="bg-white shadow-md rounded-lg p-6 space-y-6">
         <div>
-          <label>Message:</label>
-          <textarea name="message" required class="border p-2 rounded w-full"></textarea>
+          <label for="message" class="block text-lg font-medium text-gray-700">Message</label>
+          <textarea id="message" name="message" required rows="4" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"></textarea>
         </div>
-        <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded">Send</button>
+        <button type="submit" class="w-full py-2 px-4 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 transition">
+          Send Notification
+        </button>
       </form>
-      <div id="sendNotificationMessage" class="mt-4"></div>
+      <div id="sendNotificationMessage" class="mt-4 text-center text-lg text-green-600"></div>
     </div>
   </div>
 </div>
+
 <script>
   async function loadNotifications(){
     const res = await fetch('api.php?action=getNotifications');
@@ -31,20 +36,21 @@ include 'admin_header.php';
     let html = '';
     if(data.notifications && data.notifications.length > 0){
       data.notifications.forEach(n => {
-        let colorClass = (n.notification_type === 'sent') ? 'text-green-600' : 'text-yellow-600';
-        html += `<div class="p-2 rounded ${n.notification_type==='sent'?'bg-green-100':'bg-yellow-100'}">
-                    <span class="${colorClass} font-bold">${n.notification_type.toUpperCase()}</span>: ${n.message} <small>(${n.created_at})</small>
+        html += `<div class="p-4 bg-white shadow rounded-lg">
+                    <p class="text-gray-800">${n.message}</p>
+                    <small class="text-gray-500">${n.created_at}</small>
                  </div>`;
       });
     } else {
-      html = `<p>No notifications found.</p>`;
+      html = `<p class="text-gray-600">No notifications found.</p>`;
     }
     document.getElementById('notificationList').innerHTML = html;
   }
+
   document.getElementById('sendNotificationForm').addEventListener('submit', async function(e){
     e.preventDefault();
-    let formData = new FormData(this);
-    let data = {};
+    const formData = new FormData(this);
+    const data = {};
     formData.forEach((value, key) => data[key] = value);
     const res = await fetch('api.php?action=sendNotification', {
       method: 'POST',
@@ -55,6 +61,8 @@ include 'admin_header.php';
     document.getElementById('sendNotificationMessage').innerText = result.message;
     loadNotifications();
   });
+
   window.onload = loadNotifications;
 </script>
+
 <?php include 'admin_footer.php'; ?>

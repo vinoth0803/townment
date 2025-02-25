@@ -776,7 +776,7 @@ elseif ($action === 'getNotifications') {
     if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
         respond(['status' => 'error', 'message' => 'Unauthorized']);
     }
-    $stmt = $pdo->query("SELECT * FROM notifications ORDER BY created_at DESC");
+    $stmt = $pdo->query("SELECT id, message, created_at FROM notifications ORDER BY created_at DESC");
     $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
     respond(['status' => 'success', 'notifications' => $notifications]);
 }
@@ -793,10 +793,9 @@ elseif ($action === 'sendNotification') {
     if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
         respond(['status' => 'error', 'message' => 'Unauthorized']);
     }
-    // For demonstration, insert two notifications (simulate sent and received)
-    $stmt = $pdo->prepare("INSERT INTO notifications (message, notification_type) VALUES (?,?)");
-    $stmt->execute([$input['message'], 'sent']);
-    $stmt->execute([$input['message'], 'received']);
+    // Insert only one notification since the type is no longer needed.
+    $stmt = $pdo->prepare("INSERT INTO notifications (message) VALUES (?)");
+    $stmt->execute([$input['message']]);
     respond(['status' => 'success', 'message' => 'Notification sent successfully']);
 }
 
