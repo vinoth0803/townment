@@ -1,4 +1,12 @@
 <?php
+
+session_name("tenant_session"); // Use tenant session
+session_start();
+
+if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'tenant') {
+    header("Location: index.php");
+    exit();
+}
 $pageTitle = "Dashboard - TOWNMENT";
 include 'tenant_header.php';
 

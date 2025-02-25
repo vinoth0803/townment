@@ -1,4 +1,13 @@
 <?php
+session_name("admin_session"); // Use admin session
+session_start();
+
+// Check if user is logged in and has the 'admin' role
+if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
+    header("Location: index.php");
+    exit();
+}
+
 $pageTitle = "Dashboard - TOWNMENT";
 include 'admin_header.php';
 ?>
@@ -52,9 +61,8 @@ include 'admin_header.php';
 </div>
 
 <script>
-  
   // Load total tenants count
-  async function loadTotalTenants(){
+  async function loadTotalTenants() {
     try {
       const res = await fetch('api.php?action=getTotalTenants');
       const data = await res.json();
@@ -65,12 +73,10 @@ include 'admin_header.php';
   }
 
   // Load new tickets and display in the "ticketsReminder" section
-  async function loadNewTickets(){
+  async function loadNewTickets() {
     try {
       const res = await fetch('api.php?action=getNewTickets');
       const data = await res.json();
-      console.log("API Response for new tickets:", data); // Debug: check API response
-
       const tickets = data.tickets || data;
       let html = '';
       if (tickets.length > 0) {
@@ -90,7 +96,7 @@ include 'admin_header.php';
   }
 
   // Load latest tenants with filters
-  async function loadLatestTenants(){
+  async function loadLatestTenants() {
     try {
       let bhk = document.getElementById('filterBHK').value;
       let period = document.getElementById('filterPeriod').value;
@@ -130,7 +136,7 @@ include 'admin_header.php';
   }
 
   // Search tenants by username
-  async function searchTenantDashboard(){
+  async function searchTenantDashboard() {
     try {
       let username = document.getElementById('searchUsername').value;
       const res = await fetch('api.php?action=searchTenant&username=' + encodeURIComponent(username));
@@ -141,18 +147,7 @@ include 'admin_header.php';
     }
   }
 
-  // View individual tenant profile
-  async function viewTenantProfile(username){
-    try {
-      const res = await fetch('api.php?action=getTenantProfileByUsername&username=' + encodeURIComponent(username));
-      const data = await res.json();
-      document.getElementById('tenantsTable').innerHTML = `<p>Profile of ${data.tenant.username}</p>`;
-    } catch (error) {
-      console.error("Error loading tenant profile:", error);
-    }
-  }
-
-  window.onload = function(){
+  window.onload = function () {
     loadTotalTenants();
     loadNewTickets();
     loadLatestTenants();

@@ -14,11 +14,12 @@ if (file_exists(__DIR__ . '/.env')) {
         putenv("BREVO_API_KEY=" . $env['BREVO_API_KEY']);
     }
 }
+
+
 $action = $_GET['action'] ?? '';
 // LOGIN API
 if ($action === 'login') {
     $input = json_decode(file_get_contents("php://input"), true);
-
     $email = $input['email'] ?? '';
     $password = $input['password'] ?? '';
 
@@ -26,13 +27,22 @@ if ($action === 'login') {
         respond(['status' => 'error', 'message' => 'Email and password required']);
     }
 
-    // Fetch user from database
+    // Fetch user from the database
     $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ?");
     $stmt->execute([$email]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
     // Verify password
     if ($user && password_verify($password, $user['password'])) {
+        // Set a unique session name based on role
+        if ($user['role'] === 'admin') {
+            session_name("admin_session");
+        } else {
+            session_name("tenant_session");
+        }
+        
+        session_start(); // Start the session with the new name
+
         $_SESSION['user'] = [
             'id' => $user['id'],
             'email' => $user['email'],
@@ -48,6 +58,10 @@ if ($action === 'login') {
         respond(['status' => 'error', 'message' => 'Invalid credentials']);
     }
 }
+
+
+
+
 
 elseif ($action === 'getTenants') {
     // Query to fetch tenant details and gas usage info
