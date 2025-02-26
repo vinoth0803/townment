@@ -349,7 +349,7 @@ elseif ($action === 'addTenantFields') {
     
     $input = json_decode(file_get_contents("php://input"), true);
     
-    // Validate required fields, including maintenance_cost
+    // Validate required fields (due_date is now auto-generated)
     if (
         empty($input['username']) || 
         empty($input['door_number']) || 
@@ -380,7 +380,7 @@ elseif ($action === 'addTenantFields') {
         
         $user_id = $user['id'];
         
-        // Check if a tenant_fields record already exists for this tenant
+        // Update or insert the tenant_fields record
         $stmt = $pdo->prepare("SELECT id FROM tenant_fields WHERE user_id = ?");
         $stmt->execute([$user_id]);
         
@@ -389,7 +389,7 @@ elseif ($action === 'addTenantFields') {
             $stmt = $pdo->prepare("UPDATE tenant_fields 
                                    SET door_number = ?, floor = ?, block = ?, tenant_name = ?, configuration = ?, maintenance_cost = ? 
                                    WHERE user_id = ?");
-            $success = $stmt->execute([
+            $tenantSuccess = $stmt->execute([
                 $input['door_number'],
                 $input['floor'],
                 $input['block'],
@@ -402,7 +402,7 @@ elseif ($action === 'addTenantFields') {
             // Insert a new record (including maintenance_cost)
             $stmt = $pdo->prepare("INSERT INTO tenant_fields (user_id, door_number, floor, block, tenant_name, configuration, maintenance_cost) 
                                    VALUES (?, ?, ?, ?, ?, ?, ?)");
-            $success = $stmt->execute([
+            $tenantSuccess = $stmt->execute([
                 $user_id,
                 $input['door_number'],
                 $input['floor'],
@@ -413,14 +413,79 @@ elseif ($action === 'addTenantFields') {
             ]);
         }
         
-        respond($success 
-            ? ['status' => 'success', 'message' => 'Tenant fields updated successfully'] 
-            : ['status' => 'error', 'message' => 'Failed to update tenant fields']);
+        // Check for an existing maintenance record that is not marked as "Paid"
+        $stmt = $pdo->prepare("SELECT * FROM maintenance WHERE user_id = ? AND status != 'Paid' ORDER BY due_date DESC LIMIT 1");
+        $stmt->execute([$user_id]);
+        $unpaidRecord = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($unpaidRecord) {
+            // Update existing maintenance record with the new details (do not change due_date or status)
+            $stmt = $pdo->prepare("UPDATE maintenance 
+                                   SET tenant_name = ?, door_number = ?, block = ?, floor = ?, maintenance_cost = ? 
+                                   WHERE id = ?");
+            $maintenanceSuccess = $stmt->execute([
+                $input['tenant_name'],
+                $input['door_number'],
+                $input['block'],
+                $input['floor'],
+                $input['maintenance_cost'],
+                $unpaidRecord['id']
+            ]);
+        } else {
+            // No unpaid record exists.
+            // Check the last maintenance record for the tenant
+            $stmt = $pdo->prepare("SELECT * FROM maintenance WHERE user_id = ? ORDER BY due_date DESC LIMIT 1");
+            $stmt->execute([$user_id]);
+            $lastRecord = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($lastRecord && $lastRecord['status'] === "Paid") {
+                // The previous record is paid, so compute the new due date as the next month's 10th
+                $lastDueDate = new DateTime($lastRecord['due_date']);
+                $lastDueDate->modify('+1 month');
+                $lastDueDate->setDate($lastDueDate->format('Y'), $lastDueDate->format('m'), 10);
+                $dueDate = $lastDueDate->format('Y-m-d');
+            } else {
+                // If no previous record exists, compute based on the current date:
+                // If today's day is greater than 10, use the 10th of next month; otherwise, the 10th of this month.
+                $today = new DateTime();
+                if ($today->format('j') > 10) {
+                    $dueDate = (new DateTime('first day of next month'))->format('Y-m-10');
+                } else {
+                    $dueDate = $today->format('Y-m-10');
+                }
+            }
+            
+            // Determine the status based on the current date and the computed due date
+            $dueDateObj = new DateTime($dueDate);
+            $currentDate = new DateTime();
+            $status = ($currentDate > $dueDateObj) ? "Overdue" : "Unpaid";
+            
+            // Insert a new maintenance record with the computed due date and status
+            $stmt = $pdo->prepare("INSERT INTO maintenance (user_id, tenant_name, door_number, block, floor, due_date, maintenance_cost, status) 
+                                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+            $maintenanceSuccess = $stmt->execute([
+                $user_id,
+                $input['tenant_name'],
+                $input['door_number'],
+                $input['block'],
+                $input['floor'],
+                $dueDate,
+                $input['maintenance_cost'],
+                $status
+            ]);
+        }
+        
+        respond(($tenantSuccess && $maintenanceSuccess) 
+            ? ['status' => 'success', 'message' => 'Tenant fields and maintenance updated successfully'] 
+            : ['status' => 'error', 'message' => 'Failed to update tenant fields or maintenance']);
             
     } catch (PDOException $e) {
         respond(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
     }
 }
+
+
+
 /*---------------------------------------------------------
   3. Manage Tenants / Search Tenant
      GET parameter: username (search term)
@@ -1228,8 +1293,8 @@ elseif ($action === 'getMaintenance') {
         respond(['status' => 'error', 'message' => 'Unauthorized']);
     }
 
-    // Base query to fetch maintenance records
-    $query = "SELECT tenant_name, block, door_number, phone, paid_on, status, maintenance_cost, floor FROM maintenance";
+    // Base query to fetch maintenance records with the required fields
+    $query = "SELECT tenant_name, door_number, block, floor, status, due_date, maintenance_cost, paid_on FROM maintenance";
     $conditions = [];
     $params = [];
 
@@ -1272,64 +1337,6 @@ elseif ($action === 'getMaintenance') {
         respond(['status' => 'success', 'maintenance' => $maintenance]);
     } catch (Exception $e) {
         respond(['status' => 'error', 'message' => $e->getMessage()]);
-    }
-}
-
-
-elseif ($action === 'addMaintenance') {
-    // Ensure admin session is active
-    if (session_status() === PHP_SESSION_NONE) {
-        session_name("admin_session");
-        session_start();
-    }
-    if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
-        respond(['status' => 'error', 'message' => 'Unauthorized']);
-    }
-    
-    // Decode JSON input
-    $data = json_decode(file_get_contents("php://input"), true);
-    
-    // Validate required fields
-    if (
-        empty($data['tenant_name']) ||
-        empty($data['block']) ||
-        empty($data['door_number']) ||
-        empty($data['floor']) ||
-        empty($data['phone']) ||
-        !isset($data['maintenance_cost']) ||
-        empty($data['user_id'])  // Ensure user_id is provided
-    ) {
-        respond(['status' => 'error', 'message' => 'Missing parameters']);
-    }
-    
-    // Sanitize inputs
-    $tenant_name = trim($data['tenant_name']);
-    $block = trim($data['block']);
-    $door_number = trim($data['door_number']);
-    $floor = trim($data['floor']);
-    $phone = trim($data['phone']);
-    $maintenance_cost = (float)$data['maintenance_cost'];
-    $user_id = (int)$data['user_id'];
-    
-    try {
-        // Check if the user exists in the users table
-        $userCheckStmt = $pdo->prepare("SELECT id FROM users WHERE id = ?");
-        $userCheckStmt->execute([$user_id]);
-    
-        if ($userCheckStmt->rowCount() === 0) {
-            respond(['status' => 'error', 'message' => 'User ID does not exist']);
-        }
-    
-        // Insert a new maintenance record
-        $stmt = $pdo->prepare("INSERT INTO maintenance (user_id, tenant_name, block, door_number, floor, phone, maintenance_cost, paid_on, status) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, 'unpaid')");
-    
-        if ($stmt->execute([$user_id, $tenant_name, $block, $door_number, $floor, $phone, $maintenance_cost])) {
-            respond(['status' => 'success', 'message' => 'Maintenance record added successfully']);
-        } else {
-            respond(['status' => 'error', 'message' => 'Failed to add maintenance record']);
-        }
-    } catch (PDOException $e) {
-        respond(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
     }
 }
 

@@ -104,7 +104,6 @@ async function loadMaintenance() {
                         <td class="border px-4 py-3">${m.tenant_name}</td>
                         <td class="border px-4 py-3">${m.block}</td>
                         <td class="border px-4 py-3">${m.door_number}</td>
-                        <td class="border px-4 py-3">${m.phone}</td>
                         <td class="border px-4 py-3">${paidOn}</td>
                         <td class="border px-4 py-3">${totalAmount.toFixed(2)}</td>
                         <td class="border px-4 py-3 text-center">
