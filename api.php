@@ -273,9 +273,8 @@ elseif ($action === 'updatePassword') {
     }
 }
 
-
 // In your api.php, add the following case for "getTenantFields":
-    elseif ($action === 'getTenantFields') {
+elseif ($action === 'getTenantFields') {
         if (session_status() === PHP_SESSION_NONE) {
             session_name("tenant_session");
             session_start();
@@ -306,9 +305,7 @@ elseif ($action === 'updatePassword') {
         }
     }
     
-    
-
-    elseif ($action === 'getTenantProfile') {
+elseif ($action === 'getTenantProfile') {
         if (session_status() === PHP_SESSION_NONE) {
             session_name("tenant_session");
             session_start();
@@ -338,9 +335,7 @@ elseif ($action === 'updatePassword') {
             respond(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
         }
     }
-    
-    
-
+      
 /*---------------------------------------------------------
   2. Add Tenant Fields
      Expects JSON body: { "username": "", "door_number": "", "floor": "", "block": "", "tenant_name": "", "configuration": "" }
@@ -694,8 +689,6 @@ elseif ($action === 'updateGasBill') {
     }
 }
 
-
-
 elseif ($action === 'getGasUsage') {
     // Ensure tenant session is active
     if (session_status() === PHP_SESSION_NONE) {
@@ -905,7 +898,6 @@ elseif ($action === 'captureGasPayment') {
     }
 }
 
-
 /**
  * Fetch Payment Details API
  */
@@ -955,8 +947,6 @@ elseif ($action === 'fetchPaymentDetails') {
     
     respond(['status'=>'success', 'paymentDetails' => $paymentDetails]);
 }
-
-
 
 /*---------------------------------------------------------
   8. Notification: Get Notifications
@@ -1066,7 +1056,6 @@ elseif ($action === 'sendNotification') {
         respond(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
     }
 }
-
 
 /*---------------------------------------------------------
  10. Tickets: Get All Raised Tickets
@@ -1226,8 +1215,6 @@ elseif ($action === 'getTickets') {
         respond(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
     }
 }
-
-
 /*---------------------------------------------------------
  12. Maintenance: Get Maintenance Records (Dummy Data)
 ---------------------------------------------------------*/
@@ -1345,7 +1332,6 @@ elseif ($action === 'addMaintenance') {
         respond(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
     }
 }
-
 
 else {
     respond(['status' => 'error', 'message' => 'Invalid action']);
