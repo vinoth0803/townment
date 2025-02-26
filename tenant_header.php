@@ -1,30 +1,35 @@
 <?php
 // tenant_header.php
-session_start();
+
+if (session_status() === PHP_SESSION_NONE) {
+    session_name("tenant_session");
+    session_start();
+}
+
 if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'tenant') {
-    header('Location: index.php');
-    exit;
+    header("Location: index.php");
+    exit();
 }
 
 require_once 'config.php';  
 $tenant = $_SESSION['user'];
-// Optionally load tenant fields if needed
-$tenantFields = isset($_SESSION['tenant_fields']) ? $_SESSION['tenant_fields'] : [
-  'tenant_name' => 'Unknown Tenant',
-  'door_number' => '',
-  'block' => '',
-  'floor' => ''
+// Load additional tenant fields (with defaults)
+$tenantFields = $_SESSION['tenant_fields'] ?? [
+    'tenant_name' => 'Unknown Tenant',
+    'door_number' => '',
+    'block' => '',
+    'floor' => ''
 ];
-// Use the profile photo from the session or fall back to default
-// Fetch the tenant's profile photo from the database
-// (Assuming you have a PDO instance $pdo already connected)
+
+// Retrieve tenant profile photo from the database
 $stmt = $pdo->prepare("SELECT photo_path FROM tenant_photos WHERE user_id = ?");
 $stmt->execute([$tenant['id']]);
 $photoRecord = $stmt->fetch(PDO::FETCH_ASSOC);
-$profile_photo = $photoRecord && !empty($photoRecord['photo_path'])
+$profile_photo = ($photoRecord && !empty($photoRecord['photo_path']))
     ? $photoRecord['photo_path']
     : 'Assets/Default Profile picture.png';
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>

@@ -1,11 +1,26 @@
 <?php
 // api.php
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
+
+// Set session cookie parameters and session name BEFORE including config.php
+if (session_status() === PHP_SESSION_NONE) {
+    session_set_cookie_params(0, '/');
+    if (isset($_COOKIE['admin_session'])) {
+        session_name("admin_session");
+    } elseif (isset($_COOKIE['tenant_session'])) {
+        session_name("tenant_session");
+    }
+    session_start();
+}
 require 'config.php';
-header("Content-Type: application/json");
+
 
 function respond($data) {
+    header('Content-Type: application/json');
     echo json_encode($data);
-    exit;
+    exit();
 }
 // Load .env file
 if (file_exists(__DIR__ . '/.env')) {
@@ -27,42 +42,73 @@ if ($action === 'login') {
         respond(['status' => 'error', 'message' => 'Email and password required']);
     }
 
-    // Fetch user from the database
-    $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ?");
-    $stmt->execute([$email]);
-    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    try {
+        // Retrieve user record
+        $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ?");
+        $stmt->execute([$email]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    // Verify password
-    if ($user && password_verify($password, $user['password'])) {
-        // Set a unique session name based on role
-        if ($user['role'] === 'admin') {
-            session_name("admin_session");
+        // Validate credentials
+        if ($user && password_verify($password, $user['password'])) {
+            // If a session is already active, close it so we can set a new session name
+            if (session_status() === PHP_SESSION_ACTIVE) {
+                session_unset();
+                session_destroy();
+            }
+
+            // Set the correct session name based on user role BEFORE starting the session
+            if ($user['role'] === 'admin') {
+                session_name("admin_session");
+            } else {
+                session_name("tenant_session");
+            }
+            session_start();
+            session_regenerate_id(true); // Regenerate session ID for security
+
+            $_SESSION['user'] = [
+                'id'    => $user['id'],
+                'email' => $user['email'],
+                'role'  => $user['role']
+            ];
+
+            // Close the session to release the lock
+            session_write_close();
+
+            respond([
+                'status'  => 'success',
+                'message' => 'Login successful',
+                'user'    => $_SESSION['user']
+            ]);
         } else {
-            session_name("tenant_session");
+            respond(['status' => 'error', 'message' => 'Invalid credentials']);
         }
-        
-        session_start(); // Start the session with the new name
+    } catch (PDOException $e) {
+        respond(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
+    }
+} 
+elseif ($action === 'check_login') {
+    // Only set the session name if no session is active
+    if (session_status() === PHP_SESSION_NONE) {
+        if (isset($_COOKIE['admin_session'])) {
+            session_name("admin_session");
+        } elseif (isset($_COOKIE['tenant_session'])) {
+            session_name("tenant_session");
+        } else {
+            respond(['status' => 'error', 'message' => 'Not logged in']);
+        }
+        session_start();
+    }
 
-        $_SESSION['user'] = [
-            'id' => $user['id'],
-            'email' => $user['email'],
-            'role' => $user['role']
-        ];
+    $user = $_SESSION['user'] ?? null;
+    // Release the session lock so that subsequent requests are not blocked
+    session_write_close();
 
-        respond([
-            'status' => 'success',
-            'message' => 'Login successful',
-            'user' => $_SESSION['user']
-        ]);
+    if ($user) {
+        respond(['status' => 'success', 'user' => $user]);
     } else {
-        respond(['status' => 'error', 'message' => 'Invalid credentials']);
+        respond(['status' => 'error', 'message' => 'Not logged in']);
     }
 }
-
-
-
-
-
 elseif ($action === 'getTenants') {
     // Query to fetch tenant details and gas usage info
     $query = "SELECT 
@@ -98,13 +144,19 @@ elseif ($action === 'addTenant') {
     if (empty($input['username']) || empty($input['email']) || empty($input['phone']) || empty($input['password'])) {
         respond(['status' => 'error', 'message' => 'Missing parameters']);
     }
+    
+    // For debugging, return the session data (remove or comment this out in production)
+    
+    
     if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
         respond(['status' => 'error', 'message' => 'Unauthorized']);
     }
+    
     $username = $input['username'];
-    $email = $input['email'];
-    $phone = $input['phone'];
+    $email    = $input['email'];
+    $phone    = $input['phone'];
     $password = password_hash($input['password'], PASSWORD_BCRYPT);
+    
     $stmt = $pdo->prepare("INSERT INTO users (username, email, phone, password, role) VALUES (?,?,?,?, 'tenant')");
     if ($stmt->execute([$username, $email, $phone, $password])) {
         respond(['status' => 'success', 'message' => 'Tenant added successfully']);
@@ -112,6 +164,8 @@ elseif ($action === 'addTenant') {
         respond(['status' => 'error', 'message' => 'Failed to add tenant']);
     }
 }
+
+
 elseif ($action === 'uploadPhoto') {
     // Ensure the logged-in user is a tenant
     if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'tenant') {
@@ -239,30 +293,50 @@ elseif ($action === 'updatePassword') {
     }
     
 
-elseif ($action === 'getTenantProfile') {
-    if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'tenant') {
-        respond(['status' => 'error', 'message' => 'Unauthorized']);
+    elseif ($action === 'getTenantProfile') {
+        // Ensure the session is started and the user is a tenant.
+        if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'tenant') {
+            respond(['status' => 'error', 'message' => 'Unauthorized']);
+        }
+        
+        $userId = $_SESSION['user']['id'];
+        
+        try {
+            // Prepare the query to fetch tenant profile details.
+            $stmt = $pdo->prepare("SELECT u.username, u.email, u.phone, tf.tenant_name 
+                                   FROM users u 
+                                   LEFT JOIN tenant_fields tf ON u.id = tf.user_id 
+                                   WHERE u.id = ?");
+            $stmt->execute([$userId]);
+            
+            // Fetch the profile data.
+            $profile = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            // Check if a profile was found.
+            if ($profile) {
+                 respond(['status' => 'success', 'profile' => $profile]);
+            } else {
+                 // Optionally log a debug message here if needed.
+                 respond(['status' => 'error', 'message' => 'Profile not found']);
+            }
+        } catch (PDOException $e) {
+            // Return any database errors in the response (remove detailed error info in production).
+            respond(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
+        }
     }
-    $userId = $_SESSION['user']['id'];
-    // Adjust the query if you have a separate tenant_fields table.
-    $stmt = $pdo->prepare("SELECT u.username, u.email, u.phone, tf.tenant_name 
-                           FROM users u 
-                           LEFT JOIN tenant_fields tf ON u.id = tf.user_id 
-                           WHERE u.id = ?");
-    $stmt->execute([$userId]);
-    $profile = $stmt->fetch(PDO::FETCH_ASSOC);
-    if ($profile) {
-         respond(['status' => 'success', 'profile' => $profile]);
-    } else {
-         respond(['status' => 'error', 'message' => 'Profile not found']);
-    }
-}
+    
 
 /*---------------------------------------------------------
   2. Add Tenant Fields
      Expects JSON body: { "username": "", "door_number": "", "floor": "", "block": "", "tenant_name": "", "configuration": "" }
 ---------------------------------------------------------*/
 elseif ($action === 'addTenantFields') {
+    // Ensure the session is started with the admin session name
+    if (session_status() === PHP_SESSION_NONE) {
+        session_name("admin_session");
+        session_start();
+    }
+    
     $input = json_decode(file_get_contents("php://input"), true);
     
     // Validate required fields, including maintenance_cost
@@ -278,56 +352,66 @@ elseif ($action === 'addTenantFields') {
         respond(['status' => 'error', 'message' => 'Missing parameters']);
     }
     
+    // Check that the logged-in user is an admin
     if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
         respond(['status' => 'error', 'message' => 'Unauthorized']);
     }
     
-    $username = $input['username'];
-    $stmt = $pdo->prepare("SELECT id FROM users WHERE username = ? AND role = 'tenant'");
-    $stmt->execute([$username]);
-    $user = $stmt->fetch(PDO::FETCH_ASSOC);
-    
-    if (!$user) {
-        respond(['status' => 'error', 'message' => 'Tenant not found']);
+    try {
+        $username = $input['username'];
+        // Retrieve tenant id from the users table for the given username and role 'tenant'
+        $stmt = $pdo->prepare("SELECT id FROM users WHERE username = ? AND role = 'tenant'");
+        $stmt->execute([$username]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$user) {
+            respond(['status' => 'error', 'message' => 'Tenant not found']);
+        }
+        
+        $user_id = $user['id'];
+        
+        // Check if a tenant_fields record already exists for this tenant
+        $stmt = $pdo->prepare("SELECT id FROM tenant_fields WHERE user_id = ?");
+        $stmt->execute([$user_id]);
+        
+        if ($stmt->rowCount() > 0) {
+            // Update the existing record (including maintenance_cost)
+            $stmt = $pdo->prepare("UPDATE tenant_fields 
+                                   SET door_number = ?, floor = ?, block = ?, tenant_name = ?, configuration = ?, maintenance_cost = ? 
+                                   WHERE user_id = ?");
+            $success = $stmt->execute([
+                $input['door_number'],
+                $input['floor'],
+                $input['block'],
+                $input['tenant_name'],
+                $input['configuration'],
+                $input['maintenance_cost'],
+                $user_id
+            ]);
+        } else {
+            // Insert a new record (including maintenance_cost)
+            $stmt = $pdo->prepare("INSERT INTO tenant_fields (user_id, door_number, floor, block, tenant_name, configuration, maintenance_cost) 
+                                   VALUES (?, ?, ?, ?, ?, ?, ?)");
+            $success = $stmt->execute([
+                $user_id,
+                $input['door_number'],
+                $input['floor'],
+                $input['block'],
+                $input['tenant_name'],
+                $input['configuration'],
+                $input['maintenance_cost']
+            ]);
+        }
+        
+        respond($success 
+            ? ['status' => 'success', 'message' => 'Tenant fields updated successfully'] 
+            : ['status' => 'error', 'message' => 'Failed to update tenant fields']);
+            
+    } catch (PDOException $e) {
+        respond(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
     }
-    
-    $user_id = $user['id'];
-    
-    // Check if tenant fields record exists
-    $stmt = $pdo->prepare("SELECT id FROM tenant_fields WHERE user_id = ?");
-    $stmt->execute([$user_id]);
-    
-    if ($stmt->rowCount() > 0) {
-        // Update existing record including maintenance_cost
-        $stmt = $pdo->prepare("UPDATE tenant_fields 
-                               SET door_number = ?, floor = ?, block = ?, tenant_name = ?, configuration = ?, maintenance_cost = ? 
-                               WHERE user_id = ?");
-        $success = $stmt->execute([
-            $input['door_number'],
-            $input['floor'],
-            $input['block'],
-            $input['tenant_name'],
-            $input['configuration'],
-            $input['maintenance_cost'],
-            $user_id
-        ]);
-    } else {
-        // Insert new record including maintenance_cost
-        $stmt = $pdo->prepare("INSERT INTO tenant_fields (user_id, door_number, floor, block, tenant_name, configuration, maintenance_cost) 
-                               VALUES (?, ?, ?, ?, ?, ?, ?)");
-        $success = $stmt->execute([
-            $user_id,
-            $input['door_number'],
-            $input['floor'],
-            $input['block'],
-            $input['tenant_name'],
-            $input['configuration'],
-            $input['maintenance_cost']
-        ]);
-    }
-    
-    respond($success ? ['status' => 'success', 'message' => 'Tenant fields updated successfully'] : ['status' => 'error', 'message' => 'Failed to update tenant fields']);
 }
+
 
 /*---------------------------------------------------------
   3. Manage Tenants / Search Tenant

@@ -51,73 +51,70 @@
 
   <script>
     $(document).ready(function () {
-    // **🔹 Auto-check if user is already logged in**
-    $.ajax({
-        url: "api.php?action=check_login",
-        type: "GET",
-        success: function(response) {
-            if (response.status === "success") {
-                let redirectPage = (response.user.role === "admin") ? "admin.php" : "tenant_dashboard.php";
-                window.location.href = redirectPage;
-            }
-        }
+      // Check if the user is already logged in
+      $.ajax({
+          url: "api.php?action=check_login",
+          type: "GET",
+          success: function(response) {
+              if (response.status === "success") {
+                  let redirectPage = (response.user.role === "admin") ? "admin.php" : "tenant_dashboard.php";
+                  window.location.href = redirectPage;
+              }
+          }
+      });
+
+      // Handle login form submission
+      $("#login-form").submit(function(event) {
+          event.preventDefault();
+
+          let email = $("#email").val().trim();
+          let password = $("#password").val().trim();
+
+          $("#error-message").addClass("hidden");
+          $("#login-btn").prop("disabled", true);
+          $("#loading").removeClass("hidden");
+
+          if (!email || !password) {
+              $("#error-message").text("Please fill in both fields").removeClass("hidden");
+              $("#login-btn").prop("disabled", false);
+              $("#loading").addClass("hidden");
+              return;
+          }
+
+          $.ajax({
+              url: "api.php?action=login",
+              type: "POST",
+              contentType: "application/json",
+              data: JSON.stringify({ email: email, password: password }),
+              success: function(response) {
+                  $("#loading").addClass("hidden");
+                  $("#login-btn").prop("disabled", false);
+                  if (response.status === "success") {
+                      alert("Login successful!");
+                      let redirectPage = (response.user.role === "admin") ? "admin.php" : "tenant_dashboard.php";
+                      window.location.href = redirectPage;
+                  } else {
+                      $("#error-message").text(response.message).removeClass("hidden");
+                  }
+              },
+              error: function() {
+                  $("#error-message").text("Something went wrong! Please try again.").removeClass("hidden");
+                  $("#loading").addClass("hidden");
+                  $("#login-btn").prop("disabled", false);
+              }
+          });
+      });
+
+      $("input").focus(function () {
+          $("#error-message").addClass("hidden");
+      });
+
+      $("#togglePassword").click(function() {
+          let passwordField = $("#password");
+          let type = passwordField.attr("type") === "password" ? "text" : "password";
+          passwordField.attr("type", type);
+      });
     });
-
-    // **🔹 Handle login form submission**
-    $("#login-form").submit(function(event) {
-        event.preventDefault(); // Prevent page refresh
-
-        let email = $("#email").val().trim();
-        let password = $("#password").val().trim();
-
-        $("#error-message").addClass("hidden"); // Hide error initially
-        $("#login-btn").prop("disabled", true); // Disable button to prevent multiple clicks
-        $("#loading").removeClass("hidden"); // Show loading indicator
-
-        if (!email || !password) {
-            $("#error-message").text("Please fill in both fields").removeClass("hidden");
-            $("#login-btn").prop("disabled", false);
-            $("#loading").addClass("hidden");
-            return;
-        }
-
-        $.ajax({
-            url: "api.php?action=login",
-            type: "POST",
-            contentType: "application/json",
-            data: JSON.stringify({ email: email, password: password }),
-            success: function(response) {
-                $("#loading").addClass("hidden");
-                $("#login-btn").prop("disabled", false);
-                if (response.status === "success") {
-                    alert("Login successful!");
-                    let redirectPage = (response.user.role === "admin") ? "admin.php" : "tenant_dashboard.php";
-                    window.location.href = redirectPage;
-                } else {
-                    $("#error-message").text(response.message).removeClass("hidden");
-                }
-            },
-            error: function() {
-                $("#error-message").text("Something went wrong! Please try again.").removeClass("hidden");
-                $("#loading").addClass("hidden");
-                $("#login-btn").prop("disabled", false);
-            }
-        });
-    });
-
-    // **🔹 Hide error message on input focus**
-    $("input").focus(function () {
-        $("#error-message").addClass("hidden");
-    });
-
-    // **🔹 Toggle password visibility**
-    $("#togglePassword").click(function() {
-        let passwordField = $("#password");
-        let type = passwordField.attr("type") === "password" ? "text" : "password";
-        passwordField.attr("type", type);
-    });
-});
-
   </script>
 
 </body>

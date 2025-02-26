@@ -1,6 +1,10 @@
 <?php
-session_name("admin_session"); // Use admin session
-session_start();
+// admin.php
+
+if (session_status() === PHP_SESSION_NONE) {
+  session_name("admin_session");
+    session_start();
+}
 
 // Check if user is logged in and has the 'admin' role
 if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {

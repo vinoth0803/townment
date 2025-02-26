@@ -1,25 +1,28 @@
 <?php
+// tenant_dashboard.php
 
-session_name("tenant_session"); // Use tenant session
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+  session_name("tenant_session");
+    session_start();
+}
 
 if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'tenant') {
     header("Location: index.php");
     exit();
 }
+
 $pageTitle = "Dashboard - TOWNMENT";
 include 'tenant_header.php';
 
+// Fetch profile photo (if needed, otherwise tenant_header.php already does this)
 $stmt = $pdo->prepare("SELECT photo_path FROM tenant_photos WHERE user_id = ?");
 $stmt->execute([$_SESSION['user']['id']]);
 $photoRecord = $stmt->fetch(PDO::FETCH_ASSOC);
-
-// Determine which photo URL to use: use the one from the database if available,
-// otherwise fall back to the default photo.
 $profile_photo = ($photoRecord && !empty($photoRecord['photo_path']))
     ? $photoRecord['photo_path']
     : 'Assets/Default Profile picture.png';
 ?>
+
 <style>
   li {
     list-style: none;

@@ -34,6 +34,7 @@ include 'admin_header.php';
     const res = await fetch('api.php?action=addTenant', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify(data)
     });
     const result = await res.json();

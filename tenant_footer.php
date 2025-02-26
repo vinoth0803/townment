@@ -29,25 +29,25 @@ updateDateTime();
 
   // Attach logout functionality
   function attachLogout(selector) {
-    const btn = document.getElementById(selector);
-    if (btn) {
-      btn.addEventListener("click", function(e) {
-        e.preventDefault();
-        fetch('logout.php', { method: 'GET' })
-          .then(response => response.json())
-          .then(data => {
-            if (data.success) {
-              window.location.href = 'index.php';
-            } else {
-              alert('Logout failed!');
-            }
-          })
-          .catch(error => console.error('Logout Error:', error));
-      });
-    }
+  const btn = document.getElementById(selector);
+  if (btn) {
+    btn.addEventListener("click", function(e) {
+      e.preventDefault();
+      fetch('logout.php', { method: 'GET' })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            window.location.href = 'index.php';
+          } else {
+            alert('Logout failed!');
+          }
+        })
+        .catch(error => console.error('Logout Error:', error));
+    });
   }
-  attachLogout('logoutBtn');
-  attachLogout('mobileLogoutBtn');
+}
+attachLogout('logoutBtn');
+attachLogout('mobileLogoutBtn');
 
   // Mobile sidebar toggle
   const menuToggle = document.getElementById("menuToggle");
