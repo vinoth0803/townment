@@ -13,7 +13,7 @@ if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'tenant') {
 
 require_once 'config.php';  
 $tenant = $_SESSION['user'];
-// Load additional tenant fields (with defaults)
+// Load additional tenant fields (with defaults)  
 $tenantFields = $_SESSION['tenant_fields'] ?? [
     'tenant_name' => 'Unknown Tenant',
     'door_number' => '',

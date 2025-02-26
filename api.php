@@ -43,27 +43,27 @@ if ($action === 'login') {
     }
 
     try {
-        // Retrieve user record
         $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ?");
         $stmt->execute([$email]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        // Validate credentials
         if ($user && password_verify($password, $user['password'])) {
-            // If a session is already active, close it so we can set a new session name
+            // Destroy any existing session and clear cookies
             if (session_status() === PHP_SESSION_ACTIVE) {
                 session_unset();
                 session_destroy();
+
+                // Clear both admin and tenant session cookies
+                $params = session_get_cookie_params();
+                setcookie('admin_session', '', time() - 3600, $params['path'], $params['domain'], $params['secure'], $params['httponly']);
+                setcookie('tenant_session', '', time() - 3600, $params['path'], $params['domain'], $params['secure'], $params['httponly']);
             }
 
-            // Set the correct session name based on user role BEFORE starting the session
-            if ($user['role'] === 'admin') {
-                session_name("admin_session");
-            } else {
-                session_name("tenant_session");
-            }
+            // Set session name based on role
+            $sessionName = ($user['role'] === 'admin') ? 'admin_session' : 'tenant_session';
+            session_name($sessionName);
             session_start();
-            session_regenerate_id(true); // Regenerate session ID for security
+            session_regenerate_id(true); // New session ID
 
             $_SESSION['user'] = [
                 'id'    => $user['id'],
@@ -71,7 +71,6 @@ if ($action === 'login') {
                 'role'  => $user['role']
             ];
 
-            // Close the session to release the lock
             session_write_close();
 
             respond([
@@ -85,7 +84,7 @@ if ($action === 'login') {
     } catch (PDOException $e) {
         respond(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
     }
-} 
+}
 elseif ($action === 'check_login') {
     // Only set the session name if no session is active
     if (session_status() === PHP_SESSION_NONE) {
@@ -167,12 +166,16 @@ elseif ($action === 'addTenant') {
 
 
 elseif ($action === 'uploadPhoto') {
-    // Ensure the logged-in user is a tenant
+    // Ensure the logged-in user is a tenant.
+    if (session_status() === PHP_SESSION_NONE) {
+        session_name("tenant_session");
+        session_start();
+    }
     if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'tenant') {
         respond(['status' => 'error', 'message' => 'Unauthorized']);
     }
     
-    // Check if a file was uploaded without errors
+    // Check if a file was uploaded without errors.
     if (!isset($_FILES['photo']) || $_FILES['photo']['error'] !== UPLOAD_ERR_OK) {
         respond(['status' => 'error', 'message' => 'File upload failed']);
     }
@@ -213,11 +216,11 @@ elseif ($action === 'uploadPhoto') {
         }
         
         if ($success) {
-            // Update the session value (optional)
+            // Optionally update the session value.
             $_SESSION['user']['profile_photo'] = $targetFile;
             respond([
-                'status' => 'success',
-                'message' => 'Photo updated successfully',
+                'status'    => 'success',
+                'message'   => 'Photo updated successfully',
                 'photo_url' => $targetFile
             ]);
         } else {
@@ -229,10 +232,15 @@ elseif ($action === 'uploadPhoto') {
 }
 
 
+
 //update password
 
 elseif ($action === 'updatePassword') {
-    // Allow both tenant and admin to update password, if needed.
+    // Allow both tenant and admin to update password.
+    if (session_status() === PHP_SESSION_NONE) {
+        // Start session without forcing a specific session name if already logged in.
+        session_start();
+    }
     if (!isset($_SESSION['user']) || !in_array($_SESSION['user']['role'], ['tenant', 'admin'])) {
         respond(['status' => 'error', 'message' => 'Unauthorized']);
     }
@@ -244,7 +252,7 @@ elseif ($action === 'updatePassword') {
     
     $userId = $_SESSION['user']['id'];
     
-    // Retrieve the current hashed password from the database
+    // Retrieve the current hashed password from the database.
     $stmt = $pdo->prepare("SELECT password FROM users WHERE id = ?");
     $stmt->execute([$userId]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -253,7 +261,7 @@ elseif ($action === 'updatePassword') {
         respond(['status' => 'error', 'message' => 'Old password is incorrect']);
     }
     
-    // Hash the new password securely
+    // Hash the new password securely.
     $newHash = password_hash($input['new_password'], PASSWORD_DEFAULT);
     $stmt = $pdo->prepare("UPDATE users SET password = ? WHERE id = ?");
     $success = $stmt->execute([$newHash, $userId]);
@@ -265,36 +273,46 @@ elseif ($action === 'updatePassword') {
     }
 }
 
+
 // In your api.php, add the following case for "getTenantFields":
     elseif ($action === 'getTenantFields') {
-        // Only allow access for tenant users
+        if (session_status() === PHP_SESSION_NONE) {
+            session_name("tenant_session");
+            session_start();
+        }
         if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'tenant') {
             respond(['status' => 'error', 'message' => 'Unauthorized']);
         }
         
-        // Get the tenant's user ID from session
         $tenant_id = $_SESSION['user']['id'];
         
-        // Prepare a query to fetch tenant fields and profile photo (if exists)
-        $stmt = $pdo->prepare("
-            SELECT tf.tenant_name, tf.door_number, tf.block, tf.floor, tf.configuration, tf.maintenance_cost, tp.photo_path
-            FROM tenant_fields tf
-            LEFT JOIN tenant_photos tp ON tf.user_id = tp.user_id
-            WHERE tf.user_id = ?
-        ");
-        $stmt->execute([$tenant_id]);
-        $fields = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        if ($fields) {
-            respond(['status' => 'success', 'fields' => $fields]);
-        } else {
-            respond(['status' => 'error', 'message' => 'Tenant fields not found']);
+        try {
+            $stmt = $pdo->prepare("
+                SELECT tf.tenant_name, tf.door_number, tf.block, tf.floor, tf.configuration, tf.maintenance_cost, tp.photo_path
+                FROM tenant_fields tf
+                LEFT JOIN tenant_photos tp ON tf.user_id = tp.user_id
+                WHERE tf.user_id = ?
+            ");
+            $stmt->execute([$tenant_id]);
+            $fields = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($fields) {
+                respond(['status' => 'success', 'fields' => $fields]);
+            } else {
+                respond(['status' => 'error', 'message' => 'Tenant fields not found']);
+            }
+        } catch (PDOException $e) {
+            respond(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
         }
     }
     
+    
 
     elseif ($action === 'getTenantProfile') {
-        // Ensure the session is started and the user is a tenant.
+        if (session_status() === PHP_SESSION_NONE) {
+            session_name("tenant_session");
+            session_start();
+        }
         if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'tenant') {
             respond(['status' => 'error', 'message' => 'Unauthorized']);
         }
@@ -302,28 +320,25 @@ elseif ($action === 'updatePassword') {
         $userId = $_SESSION['user']['id'];
         
         try {
-            // Prepare the query to fetch tenant profile details.
-            $stmt = $pdo->prepare("SELECT u.username, u.email, u.phone, tf.tenant_name 
-                                   FROM users u 
-                                   LEFT JOIN tenant_fields tf ON u.id = tf.user_id 
-                                   WHERE u.id = ?");
+            $stmt = $pdo->prepare("
+                SELECT u.username, u.email, u.phone, tf.tenant_name 
+                FROM users u 
+                LEFT JOIN tenant_fields tf ON u.id = tf.user_id 
+                WHERE u.id = ?
+            ");
             $stmt->execute([$userId]);
-            
-            // Fetch the profile data.
             $profile = $stmt->fetch(PDO::FETCH_ASSOC);
             
-            // Check if a profile was found.
             if ($profile) {
-                 respond(['status' => 'success', 'profile' => $profile]);
+                respond(['status' => 'success', 'profile' => $profile]);
             } else {
-                 // Optionally log a debug message here if needed.
-                 respond(['status' => 'error', 'message' => 'Profile not found']);
+                respond(['status' => 'error', 'message' => 'Profile not found']);
             }
         } catch (PDOException $e) {
-            // Return any database errors in the response (remove detailed error info in production).
             respond(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
         }
     }
+    
     
 
 /*---------------------------------------------------------
@@ -411,54 +426,79 @@ elseif ($action === 'addTenantFields') {
         respond(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
     }
 }
-
-
 /*---------------------------------------------------------
   3. Manage Tenants / Search Tenant
      GET parameter: username (search term)
 ---------------------------------------------------------*/
 elseif ($action === 'searchTenant') {
+    // Ensure the session is started with the admin session name
+    if (session_status() === PHP_SESSION_NONE) {
+        session_name("admin_session");
+        session_start();
+    }
     if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
         respond(['status' => 'error', 'message' => 'Unauthorized']);
     }
-    $search = $_GET['username'] ?? '';
-    $stmt = $pdo->prepare("SELECT username, email, phone FROM users WHERE role='tenant' AND username LIKE ?");
-    $stmt->execute(['%' . $search . '%']);
-    $tenants = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    respond(['status' => 'success', 'tenants' => $tenants]);
+    
+    try {
+        $search = $_GET['username'] ?? '';
+        $stmt = $pdo->prepare("SELECT username, email, phone FROM users WHERE role = 'tenant' AND username LIKE ?");
+        $stmt->execute(['%' . $search . '%']);
+        $tenants = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        respond(['status' => 'success', 'tenants' => $tenants]);
+    } catch (PDOException $e) {
+        respond(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
+    }
 }
 elseif ($action === 'deleteTenant') {
+    // Ensure the session is started with the admin session name
+    if (session_status() === PHP_SESSION_NONE) {
+        session_name("admin_session");
+        session_start();
+    }
     if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
         respond(['status' => 'error', 'message' => 'Unauthorized']);
     }
+    
     $username = $_GET['username'] ?? '';
     if (empty($username)) {
         respond(['status' => 'error', 'message' => 'Missing tenant username']);
     }
-    // Delete the tenant from the users table.
-    // Ensure that foreign keys are configured with ON DELETE CASCADE if needed.
-    $stmt = $pdo->prepare("DELETE FROM users WHERE username = ? AND role = 'tenant'");
-    if ($stmt->execute([$username])) {
-        respond(['status' => 'success', 'message' => 'Tenant deleted successfully']);
-    } else {
-        respond(['status' => 'error', 'message' => 'Failed to delete tenant']);
+    
+    try {
+        // Delete the tenant from the users table.
+        // Ensure that foreign keys are configured with ON DELETE CASCADE if needed.
+        $stmt = $pdo->prepare("DELETE FROM users WHERE username = ? AND role = 'tenant'");
+        if ($stmt->execute([$username])) {
+            respond(['status' => 'success', 'message' => 'Tenant deleted successfully']);
+        } else {
+            respond(['status' => 'error', 'message' => 'Failed to delete tenant']);
+        }
+    } catch (PDOException $e) {
+        respond(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
     }
 }
-
 /*---------------------------------------------------------
   4. Dashboard: Get Total Tenants
 ---------------------------------------------------------*/
 elseif ($action === 'getTotalTenants') {
+    // Ensure the session is started with the admin session name
+    if (session_status() === PHP_SESSION_NONE) {
+        session_name("admin_session");
+        session_start();
+    }
     if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
         respond(['status' => 'error', 'message' => 'Unauthorized']);
     }
-    $stmt = $pdo->query("SELECT COUNT(*) as total FROM users WHERE role='tenant'");
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
-    respond(['status' => 'success', 'total' => $row['total']]);
+    
+    try {
+        $stmt = $pdo->query("SELECT COUNT(*) as total FROM users WHERE role = 'tenant'");
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        respond(['status' => 'success', 'total' => $row['total']]);
+    } catch (PDOException $e) {
+        respond(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
+    }
 }
-
-
-
 
 /*---------------------------------------------------------
   5. Dashboard: Get Latest Tenants
@@ -496,161 +536,206 @@ elseif ($action === 'getLatestTenants') {
 ---------------------------------------------------------*/
 /*Eb update------------------------------------------------------- */
 elseif ($action === 'getEBDebts') {
-    // (Ensure admin authentication here)
-    // Join tenant_fields and eb_bill (using a LEFT JOIN so that if no eb_bill record exists, we assume "unpaid")
-    $stmt = $pdo->query("
-        SELECT tf.tenant_name, tf.block, tf.door_number, tf.floor, eb.paid_on, 
-               COALESCE(eb.status, 'unpaid') as status 
-        FROM tenant_fields tf 
-        LEFT JOIN eb_bill eb ON tf.user_id = eb.user_id
-        ORDER BY tf.tenant_name ASC
-    ");
-    $tenants = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    respond(['status' => 'success', 'tenants' => $tenants]);
+    // Ensure admin session is active
+    if (session_status() === PHP_SESSION_NONE) {
+        session_name("admin_session");
+        session_start();
+    }
+    if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
+        respond(['status' => 'error', 'message' => 'Unauthorized']);
+    }
+    
+    try {
+        // Retrieve tenant details along with EB bill status (defaulting to 'unpaid')
+        $stmt = $pdo->query("
+            SELECT tf.tenant_name, tf.block, tf.door_number, tf.floor, eb.paid_on, 
+                   COALESCE(eb.status, 'unpaid') as status 
+            FROM tenant_fields tf 
+            LEFT JOIN eb_bill eb ON tf.user_id = eb.user_id
+            ORDER BY tf.tenant_name ASC
+        ");
+        $tenants = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        respond(['status' => 'success', 'tenants' => $tenants]);
+    } catch (PDOException $e) {
+        respond(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
+    }
 }
+
 elseif ($action === 'getTenantEBDebt') {
-    // Ensure the logged-in user is a tenant
+    // Ensure tenant session is active
+    if (session_status() === PHP_SESSION_NONE) {
+        session_name("tenant_session");
+        session_start();
+    }
     if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'tenant') {
         respond(['status' => 'error', 'message' => 'Unauthorized']);
     }
-    $tenantId = $_SESSION['user']['id'];
-    // Join tenant_fields and eb_bill for the logged-in tenant.
-    $stmt = $pdo->prepare("
-        SELECT tf.tenant_name, tf.block, tf.door_number, tf.floor, u.phone, 
-               COALESCE(eb.status, 'unpaid') as status, eb.paid_on 
-        FROM tenant_fields tf 
-        JOIN users u ON tf.user_id = u.id 
-        LEFT JOIN eb_bill eb ON tf.user_id = eb.user_id 
-        WHERE tf.user_id = ?
-    ");
-    $stmt->execute([$tenantId]);
-    $eb = $stmt->fetch(PDO::FETCH_ASSOC);
-    respond(['status' => 'success', 'eb' => $eb]);
+    
+    try {
+        $tenantId = $_SESSION['user']['id'];
+        // Retrieve tenant profile and their EB bill status (defaults to 'unpaid' if missing)
+        $stmt = $pdo->prepare("
+            SELECT tf.tenant_name, tf.block, tf.door_number, tf.floor, u.phone, 
+                   COALESCE(eb.status, 'unpaid') as status, eb.paid_on 
+            FROM tenant_fields tf 
+            JOIN users u ON tf.user_id = u.id 
+            LEFT JOIN eb_bill eb ON tf.user_id = eb.user_id 
+            WHERE tf.user_id = ?
+        ");
+        $stmt->execute([$tenantId]);
+        $eb = $stmt->fetch(PDO::FETCH_ASSOC);
+        respond(['status' => 'success', 'eb' => $eb]);
+    } catch (PDOException $e) {
+        respond(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
+    }
 }
+
 /*Marks as paid---------------------------- */
 elseif ($action === 'markAsPaid') {
-    // Ensure the logged-in user is a tenant
+    // Ensure tenant session is active
+    if (session_status() === PHP_SESSION_NONE) {
+        session_name("tenant_session");
+        session_start();
+    }
     if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'tenant') {
         respond(['status' => 'error', 'message' => 'Unauthorized']);
     }
-    $tenantId = $_SESSION['user']['id'];
-
-    // Check if an EB bill record already exists for this tenant
-    $stmt = $pdo->prepare("SELECT id FROM eb_bill WHERE user_id = ?");
-    $stmt->execute([$tenantId]);
     
-    if ($stmt->rowCount() > 0) {
-        // Record exists, so update it
-        $updateStmt = $pdo->prepare("UPDATE eb_bill SET status = 'paid', paid_on = NOW() WHERE user_id = ?");
-        $success = $updateStmt->execute([$tenantId]);
-    } else {
-        // No record exists, so insert a new one
-        $insertStmt = $pdo->prepare("INSERT INTO eb_bill (user_id, status, paid_on) VALUES (?, 'paid', NOW())");
-        $success = $insertStmt->execute([$tenantId]);
-    }
+    try {
+        $tenantId = $_SESSION['user']['id'];
 
-    if ($success) {
-        respond(['status' => 'success', 'message' => 'EB bill marked as paid']);
-    } else {
-        respond(['status' => 'error', 'message' => 'Failed to update EB bill']);
+        // Check if an EB bill record already exists for this tenant
+        $stmt = $pdo->prepare("SELECT id FROM eb_bill WHERE user_id = ?");
+        $stmt->execute([$tenantId]);
+        
+        if ($stmt->rowCount() > 0) {
+            // Record exists, so update it
+            $updateStmt = $pdo->prepare("UPDATE eb_bill SET status = 'paid', paid_on = NOW() WHERE user_id = ?");
+            $success = $updateStmt->execute([$tenantId]);
+        } else {
+            // No record exists, so insert a new one
+            $insertStmt = $pdo->prepare("INSERT INTO eb_bill (user_id, status, paid_on) VALUES (?, 'paid', NOW())");
+            $success = $insertStmt->execute([$tenantId]);
+        }
+    
+        if ($success) {
+            respond(['status' => 'success', 'message' => 'EB bill marked as paid']);
+        } else {
+            respond(['status' => 'error', 'message' => 'Failed to update EB bill']);
+        }
+    } catch (PDOException $e) {
+        respond(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
     }
 }
-
-
-
 /*---------------------------------------------------------
   7. Add Gas Usage
      Expects JSON body: { "username": "", "usage_date": "YYYY-MM-DD", "usage_amount": number }
 ---------------------------------------------------------*/
 elseif ($action === 'updateGasBill') {
-    // Ensure the logged-in user is an admin
+    // Ensure admin session is active
+    if (session_status() === PHP_SESSION_NONE) {
+        session_name("admin_session");
+        session_start();
+    }
     if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
         respond(['status' => 'error', 'message' => 'Unauthorized']);
     }
     
-    // Read the POST JSON input
-    $data = json_decode(file_get_contents('php://input'), true);
-    $username = $data['username'] ?? null;
-    $gasConsumed = $data['gasConsumed'] ?? null;
-    $amount = $data['amount'] ?? null;
+    try {
+        // Read POST JSON input
+        $data = json_decode(file_get_contents('php://input'), true);
+        $username = $data['username'] ?? null;
+        $gasConsumed = $data['gasConsumed'] ?? null;
+        $amount = $data['amount'] ?? null;
+        
+        if (!$username || $gasConsumed === null || $amount === null) {
+            respond(['status' => 'error', 'message' => 'Missing parameters']);
+        }
     
-    if (!$username || $gasConsumed === null || $amount === null) {
-        respond(['status' => 'error', 'message' => 'Missing parameters']);
-    }
-
-    // Fetch user_id from the users table using username
-    $stmt = $pdo->prepare("SELECT id FROM users WHERE username = ?");
-    $stmt->execute([$username]);
-    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        // Fetch user ID from the users table using the provided username
+        $stmt = $pdo->prepare("SELECT id FROM users WHERE username = ?");
+        $stmt->execute([$username]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$user) {
+            respond(['status' => 'error', 'message' => 'User not found']);
+        }
     
-    if (!$user) {
-        respond(['status' => 'error', 'message' => 'User not found']);
-    }
+        $userId = $user['id'];
     
-    $userId = $user['id'];
+        // Set due date 5 days ahead of today
+        $dueDate = date('Y-m-d', strtotime('+5 days'));
+        $today = date('Y-m-d');
     
-    // Set due date 10 days ahead of today
-    $dueDate = date('Y-m-d', strtotime('+5 days'));
-    $today = date('Y-m-d');
+        // Determine bill status: 'Overdue' if today is past due date, otherwise 'unpaid'
+        $status = ($today > $dueDate) ? 'Overdue' : 'unpaid';
     
-    // If the current date is greater than the due date, set status as 'Overdue', otherwise 'unpaid'
-    $status = ($today > $dueDate) ? 'Overdue' : 'unpaid';
+        // Check if a gas_usage record exists for this user
+        $stmt = $pdo->prepare("SELECT * FROM gas_usage WHERE user_id = ?");
+        $stmt->execute([$userId]);
     
-    // Check if a gas_usage record exists for the given user_id
-    $stmt = $pdo->prepare("SELECT * FROM gas_usage WHERE user_id = ?");
-    $stmt->execute([$userId]);
+        if ($stmt->rowCount() > 0) {
+            // Update existing record
+            $stmt = $pdo->prepare("UPDATE gas_usage SET gas_consumed = ?, amount = ?, due_date = ?, status = ?, tenant_username = ? WHERE user_id = ?");
+            $success = $stmt->execute([$gasConsumed, $amount, $dueDate, $status, $username, $userId]);
+        } else {
+            // Insert a new record
+            $stmt = $pdo->prepare("INSERT INTO gas_usage (user_id, tenant_username, gas_consumed, amount, due_date, status) VALUES (?, ?, ?, ?, ?, ?)");
+            $success = $stmt->execute([$userId, $username, $gasConsumed, $amount, $dueDate, $status]);
+        }
     
-    if ($stmt->rowCount() > 0) {
-        // Record exists; update it
-        $stmt = $pdo->prepare("UPDATE gas_usage SET gas_consumed = ?, amount = ?, due_date = ?, status = ?, tenant_username = ? WHERE user_id = ?");
-        $success = $stmt->execute([$gasConsumed, $amount, $dueDate, $status, $username, $userId]);
-    } else {
-        // No record found; insert a new one
-        $stmt = $pdo->prepare("INSERT INTO gas_usage (user_id, tenant_username, gas_consumed, amount, due_date, status) VALUES (?, ?, ?, ?, ?, ?)");
-        $success = $stmt->execute([$userId, $username, $gasConsumed, $amount, $dueDate, $status]);
-    }
-    
-    if ($success) {
-        respond(['status' => 'success', 'message' => 'Gas bill updated successfully!']);
-    } else {
-        respond(['status' => 'error', 'message' => 'Failed to update gas bill']);
+        if ($success) {
+            respond(['status' => 'success', 'message' => 'Gas bill updated successfully!']);
+        } else {
+            respond(['status' => 'error', 'message' => 'Failed to update gas bill']);
+        }
+    } catch (PDOException $e) {
+        respond(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
     }
 }
+
 
 
 elseif ($action === 'getGasUsage') {
+    // Ensure tenant session is active
+    if (session_status() === PHP_SESSION_NONE) {
+        session_name("tenant_session");
+        session_start();
+    }
     if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'tenant') {
         respond(['status' => 'error', 'message' => 'Unauthorized']);
     }
-    $userId = $_SESSION['user']['id'];
-    $stmt = $pdo->prepare("
-        SELECT 
-            gu.id, 
-            tf.tenant_name, 
-            tf.block, 
-            tf.door_number, 
-            tf.floor,
-            u.phone, 
-            u.email,
-            gu.gas_consumed, 
-            gu.amount, 
-            gu.created_at AS bill_date,  
-            gu.due_date, 
-            gu.status,
-            gu.user_id
-        FROM gas_usage gu
-        JOIN tenant_fields tf ON gu.user_id = tf.user_id
-        JOIN users u ON gu.user_id = u.id
-        WHERE gu.user_id = ?
-        ORDER BY gu.created_at DESC
-    ");
-    $stmt->execute([$userId]);
-    $gasUsage = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    respond(['status' => 'success', 'gas_usage' => $gasUsage]);
+    
+    try {
+        $userId = $_SESSION['user']['id'];
+        $stmt = $pdo->prepare("
+            SELECT 
+                gu.id, 
+                tf.tenant_name, 
+                tf.block, 
+                tf.door_number, 
+                tf.floor,
+                u.phone, 
+                u.email,
+                gu.gas_consumed, 
+                gu.amount, 
+                gu.created_at AS bill_date,  
+                gu.due_date, 
+                gu.status,
+                gu.user_id
+            FROM gas_usage gu
+            JOIN tenant_fields tf ON gu.user_id = tf.user_id
+            JOIN users u ON gu.user_id = u.id
+            WHERE gu.user_id = ?
+            ORDER BY gu.created_at DESC
+        ");
+        $stmt->execute([$userId]);
+        $gasUsage = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        respond(['status' => 'success', 'gas_usage' => $gasUsage]);
+    } catch (PDOException $e) {
+        respond(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
+    }
 }
-
-
-
 /**
  * Create Gas Order API (for Razorpay integration)
  */
@@ -877,13 +962,23 @@ elseif ($action === 'fetchPaymentDetails') {
   8. Notification: Get Notifications
 ---------------------------------------------------------*/
 elseif ($action === 'getNotifications') {
+    // Ensure a session is active (both admin and tenant allowed)
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
     if (!isset($_SESSION['user']) || !in_array($_SESSION['user']['role'], ['admin', 'tenant'])) {
         respond(['status' => 'error', 'message' => 'Unauthorized']);
     }
-    $stmt = $pdo->query("SELECT id, message, created_at FROM notifications ORDER BY created_at DESC");
-    $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    respond(['status' => 'success', 'notifications' => $notifications]);
+    
+    try {
+        $stmt = $pdo->query("SELECT id, message, created_at FROM notifications ORDER BY created_at DESC");
+        $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        respond(['status' => 'success', 'notifications' => $notifications]);
+    } catch (PDOException $e) {
+        respond(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
+    }
 }
+
 
 /*---------------------------------------------------------
   9. Notification: Send Notification
@@ -898,143 +993,178 @@ elseif ($action === 'sendNotification') {
     }
     
     // Ensure the user is an admin
-    if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
-        respond(['status' => 'error', 'message' => 'Unauthorized']);
+    if (session_status() === PHP_SESSION_NONE) {
+        session_name("admin_session");
+        session_start();
     }
-    
-    // 1 Insert the notification into the database
-    $stmt = $pdo->prepare("INSERT INTO notifications (message) VALUES (?)");
-    $stmt->execute([$input['message']]);
-    
-    // 2 Fetch all tenant emails and names.
-    // Adjust this query based on your actual table structure.
-    $query = "SELECT u.email, tf.tenant_name 
-              FROM users u 
-              INNER JOIN tenant_fields tf ON u.id = tf.user_id";
-    $stmt = $pdo->query($query);
-    $recipients = [];
-    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        // Make sure both email and tenant name exist.
-        if (!empty($row['email']) && !empty($row['tenant_name'])) {
-            $recipients[] = [
-                "email" => $row['email'],
-                "name"  => $row['tenant_name']
-            ];
-        }
-    }
-    
-    // Check if there are recipients
-    if (empty($recipients)) {
-        respond(['status' => 'error', 'message' => 'No tenant emails found to send notification']);
-    }
-    
-    // 3 Prepare the email data for Brevo
-    $apiKey = getenv('BREVO_API_KEY'); // Replace with your actual Brevo API key
-    $emailData = [
-        "sender" => [
-            "name"  => "Townment Admin Notification",           // Customize as needed
-            "email" => "vinothkrish0803@gmail.com"              // Replace with your verified sender email
-        ],
-        "to" => $recipients,
-        "subject" => "New Notification from Admin",
-        // Convert newlines to <br> and escape HTML characters
-        "htmlContent" => "<p>" . nl2br(htmlentities($input['message'])) . "</p>"
-    ];
-    
-    // 4 Send the email using Brevo's REST API (using cURL)
-    $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, "https://api.brevo.com/v3/smtp/email");
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($emailData));
-    curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        "accept: application/json",
-        "api-key: $apiKey",
-        "content-type: application/json"
-    ]);
-    
-    $response = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-    
-    // 5 Check for errors in the API call
-    if ($httpCode >= 200 && $httpCode < 300) {
-        respond(['status' => 'success', 'message' => 'Notification sent successfully']);
-    } else {
-        // Log the error details as needed and send an error response.
-        respond(['status' => 'error', 'message' => 'Notification saved but email sending failed', 'api_response' => json_decode($response, true)]);
-    }
-}
-
-/*---------------------------------------------------------
- 10. Tickets: Get All Raised Tickets
----------------------------------------------------------*/
-elseif ($action === 'getallTickets') {
-    if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
-        respond(['status' => 'error', 'message' => 'Unauthorized']);
-    }
-    $stmt = $pdo->query("SELECT t.id, u.username, t.raised_date, t.issue, t.status
-                         FROM tickets t 
-                         JOIN users u ON t.user_id = u.id 
-                         ORDER BY t.raised_date DESC");
-    $tickets = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    respond(['status' => 'success', 'tickets' => $tickets]);
-}
-
-/*---------------------------------------------------------
- 11. Tickets: Update Ticket Status
-     Expects JSON body: { "ticket_id": number, "status": "opened"|"inprogress"|"closed" }
----------------------------------------------------------*/
-elseif ($action === 'updateTicketStatus') {
-    $input = json_decode(file_get_contents("php://input"), true);
-    if (empty($input['ticket_id']) || empty($input['status'])) {
-        respond(['status' => 'error', 'message' => 'Ticket ID and status required']);
-    }
-    if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
-        respond(['status' => 'error', 'message' => 'Unauthorized']);
-    }
-    $stmt = $pdo->prepare("UPDATE tickets SET status=? WHERE id=?");
-    if ($stmt->execute([$input['status'], $input['ticket_id']])) {
-        respond(['status' => 'success', 'message' => 'Ticket status updated']);
-    } else {
-        respond(['status' => 'error', 'message' => 'Failed to update ticket status']);
-    }
-}
-elseif ($action === 'raiseTicket') {
-    // Ensure the user is logged in (tenant or admin may raise a ticket)
-    if (!isset($_SESSION['user'])) {
-        respond(['status' => 'error', 'message' => 'Unauthorized']);
-    }
-    
-    // Read the POST JSON input
-    $data = json_decode(file_get_contents("php://input"), true);
-    
-    // Validate that the "issue" field is provided
-    if (empty($data['issue'])) {
-        respond(['status' => 'error', 'message' => 'Issue description is required']);
-    }
-    
-    // Get the user ID from session data
-    $user_id = $_SESSION['user']['id'];
-    $issue = trim($data['issue']);
-    
-    // Insert the new ticket into the tickets table with default status "opened"
-    $stmt = $pdo->prepare("INSERT INTO tickets (user_id, issue, status) VALUES (?, ?, 'opened')");
-    if ($stmt->execute([$user_id, $issue])) {
-        respond(['status' => 'success', 'message' => 'Ticket raised successfully']);
-    } else {
-        respond(['status' => 'error', 'message' => 'Failed to raise ticket']);
-    }
-}
-elseif ($action === 'getNewTickets') {
-    // Check that the current user is an admin
     if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
         respond(['status' => 'error', 'message' => 'Unauthorized']);
     }
     
     try {
-        // Fetch tickets raised in the last 24 hours.
-        // Adjust the query and column names if necessary.
+        // 1. Insert the notification into the database.
+        $stmt = $pdo->prepare("INSERT INTO notifications (message) VALUES (?)");
+        $stmt->execute([$input['message']]);
+    
+        // 2. Fetch all tenant emails and names.
+        $query = "SELECT u.email, tf.tenant_name 
+                  FROM users u 
+                  INNER JOIN tenant_fields tf ON u.id = tf.user_id";
+        $stmt = $pdo->query($query);
+        $recipients = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            if (!empty($row['email']) && !empty($row['tenant_name'])) {
+                $recipients[] = [
+                    "email" => $row['email'],
+                    "name"  => $row['tenant_name']
+                ];
+            }
+        }
+    
+        if (empty($recipients)) {
+            respond(['status' => 'error', 'message' => 'No tenant emails found to send notification']);
+        }
+    
+        // 3. Prepare the email data for Brevo.
+        $apiKey = getenv('BREVO_API_KEY'); // Replace with your actual Brevo API key or use a constant
+        $emailData = [
+            "sender" => [
+                "name"  => "Townment Admin Notification",
+                "email" => "vinothkrish0803@gmail.com"
+            ],
+            "to" => $recipients,
+            "subject" => "New Notification from Admin",
+            "htmlContent" => "<p>" . nl2br(htmlentities($input['message'])) . "</p>"
+        ];
+    
+        // 4. Send the email using Brevo's REST API (using cURL)
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, "https://api.brevo.com/v3/smtp/email");
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($emailData));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            "accept: application/json",
+            "api-key: $apiKey",
+            "content-type: application/json"
+        ]);
+    
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+    
+        if ($httpCode >= 200 && $httpCode < 300) {
+            respond(['status' => 'success', 'message' => 'Notification sent successfully']);
+        } else {
+            respond([
+                'status' => 'error',
+                'message' => 'Notification saved but email sending failed',
+                'api_response' => json_decode($response, true)
+            ]);
+        }
+    } catch (PDOException $e) {
+        respond(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
+    }
+}
+
+
+/*---------------------------------------------------------
+ 10. Tickets: Get All Raised Tickets
+---------------------------------------------------------*/
+elseif ($action === 'getallTickets') {
+    // Ensure admin session is active
+    if (session_status() === PHP_SESSION_NONE) {
+        session_name("admin_session");
+        session_start();
+    }
+    if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
+        respond(['status' => 'error', 'message' => 'Unauthorized']);
+    }
+    
+    try {
+        $stmt = $pdo->query("SELECT t.id, u.username, t.raised_date, t.issue, t.status
+                             FROM tickets t 
+                             JOIN users u ON t.user_id = u.id 
+                             ORDER BY t.raised_date DESC");
+        $tickets = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        respond(['status' => 'success', 'tickets' => $tickets]);
+    } catch (PDOException $e) {
+        respond(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
+    }
+}
+/*---------------------------------------------------------
+ 11. Tickets: Update Ticket Status
+     Expects JSON body: { "ticket_id": number, "status": "opened"|"inprogress"|"closed" }
+---------------------------------------------------------*/
+elseif ($action === 'updateTicketStatus') {
+    // Ensure admin session is active
+    if (session_status() === PHP_SESSION_NONE) {
+        session_name("admin_session");
+        session_start();
+    }
+    if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
+        respond(['status' => 'error', 'message' => 'Unauthorized']);
+    }
+    
+    $input = json_decode(file_get_contents("php://input"), true);
+    if (empty($input['ticket_id']) || empty($input['status'])) {
+        respond(['status' => 'error', 'message' => 'Ticket ID and status required']);
+    }
+    
+    try {
+        $stmt = $pdo->prepare("UPDATE tickets SET status = ? WHERE id = ?");
+        if ($stmt->execute([$input['status'], $input['ticket_id']])) {
+            respond(['status' => 'success', 'message' => 'Ticket status updated']);
+        } else {
+            respond(['status' => 'error', 'message' => 'Failed to update ticket status']);
+        }
+    } catch (PDOException $e) {
+        respond(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
+    }
+}
+
+elseif ($action === 'raiseTicket') {
+    // Ensure the user is logged in (tenant or admin may raise a ticket)
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+    if (!isset($_SESSION['user'])) {
+        respond(['status' => 'error', 'message' => 'Unauthorized']);
+    }
+    
+    $data = json_decode(file_get_contents("php://input"), true);
+    if (empty($data['issue'])) {
+        respond(['status' => 'error', 'message' => 'Issue description is required']);
+    }
+    
+    $user_id = $_SESSION['user']['id'];
+    $issue = trim($data['issue']);
+    
+    try {
+        // Insert the new ticket with default status "opened"
+        $stmt = $pdo->prepare("INSERT INTO tickets (user_id, issue, status) VALUES (?, ?, 'opened')");
+        if ($stmt->execute([$user_id, $issue])) {
+            respond(['status' => 'success', 'message' => 'Ticket raised successfully']);
+        } else {
+            respond(['status' => 'error', 'message' => 'Failed to raise ticket']);
+        }
+    } catch (PDOException $e) {
+        respond(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
+    }
+}
+
+elseif ($action === 'getNewTickets') {
+    // Ensure admin session is active
+    if (session_status() === PHP_SESSION_NONE) {
+        session_name("admin_session");
+        session_start();
+    }
+    if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
+        respond(['status' => 'error', 'message' => 'Unauthorized']);
+    }
+    
+    try {
+        // Fetch tickets raised in the last 24 hours
         $stmt = $pdo->prepare("
             SELECT t.user_id, u.username, t.raised_date, t.issue, t.status
             FROM tickets t
@@ -1044,14 +1174,17 @@ elseif ($action === 'getNewTickets') {
         ");
         $stmt->execute();
         $tickets = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
         respond(['status' => 'success', 'tickets' => $tickets]);
-    } catch (Exception $e) {
-        respond(['status' => 'error', 'message' => $e->getMessage()]);
+    } catch (PDOException $e) {
+        respond(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
     }
 }
+
 elseif ($action === 'getTickets') {
     // Ensure the user is logged in
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
     if (!isset($_SESSION['user'])) {
         respond(['status' => 'error', 'message' => 'Unauthorized']);
     }
@@ -1060,21 +1193,20 @@ elseif ($action === 'getTickets') {
     $params = [];
     $query = "SELECT raised_date, issue, status FROM tickets ";
     
-    // If the user is a tenant, restrict to only their tickets.
+    // Restrict tenants to only their tickets
     if ($user['role'] === 'tenant') {
         $query .= "WHERE user_id = ? ";
         $params[] = $user['id'];
     }
     
-    // If a status filter is provided (e.g., opened, inprogress, closed)
+    // Apply status filter if provided
     if (!empty($_GET['status'])) {
-        // Add WHERE or AND depending on previous clause
         $query .= (strpos($query, 'WHERE') === false ? "WHERE " : "AND ");
         $query .= "status = ? ";
         $params[] = $_GET['status'];
     }
     
-    // If a period filter is provided (in days)
+    // Apply period filter (in days) if provided
     if (!empty($_GET['period'])) {
         $period = (int) $_GET['period'];
         $thresholdDate = date('Y-m-d H:i:s', strtotime("-{$period} days"));
@@ -1085,24 +1217,32 @@ elseif ($action === 'getTickets') {
     
     $query .= "ORDER BY raised_date DESC";
     
-    $stmt = $pdo->prepare($query);
-    $stmt->execute($params);
-    $tickets = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-    respond(['status' => 'success', 'tickets' => $tickets]);
+    try {
+        $stmt = $pdo->prepare($query);
+        $stmt->execute($params);
+        $tickets = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        respond(['status' => 'success', 'tickets' => $tickets]);
+    } catch (PDOException $e) {
+        respond(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
+    }
 }
+
 
 /*---------------------------------------------------------
  12. Maintenance: Get Maintenance Records (Dummy Data)
 ---------------------------------------------------------*/
 elseif ($action === 'getMaintenance') {
+    // Ensure admin session is active
+    if (session_status() === PHP_SESSION_NONE) {
+        session_name("admin_session");
+        session_start();
+    }
     if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
         respond(['status' => 'error', 'message' => 'Unauthorized']);
     }
 
     // Base query to fetch maintenance records
-    $query = "SELECT tenant_name, block, door_number, phone, paid_on, status, maintenance_cost, floor 
-              FROM maintenance";
+    $query = "SELECT tenant_name, block, door_number, phone, paid_on, status, maintenance_cost, floor FROM maintenance";
     $conditions = [];
     $params = [];
 
@@ -1114,8 +1254,8 @@ elseif ($action === 'getMaintenance') {
     
     // Filter: Date Range (based on paid_on)
     if (!empty($_GET['daterange'])) {
-        $days = (int)$_GET['daterange'];
-        // This will return records with paid_on date in the last X days.
+        $days = (int) $_GET['daterange'];
+        // Returns records with paid_on date in the last X days.
         $conditions[] = "paid_on >= DATE_SUB(CURDATE(), INTERVAL ? DAY)";
         $params[] = $days;
     }
@@ -1131,14 +1271,13 @@ elseif ($action === 'getMaintenance') {
         $conditions[] = "floor = ?";
         $params[] = $_GET['floor'];
     }
-
+    
     // Append conditions if any
     if (!empty($conditions)) {
         $query .= " WHERE " . implode(" AND ", $conditions);
     }
-
     $query .= " ORDER BY id DESC";
-
+    
     try {
         $stmt = $pdo->prepare($query);
         $stmt->execute($params);
@@ -1149,15 +1288,20 @@ elseif ($action === 'getMaintenance') {
     }
 }
 
+
 elseif ($action === 'addMaintenance') {
-    // Ensure the request is from an authorized admin (or modify as needed)
+    // Ensure admin session is active
+    if (session_status() === PHP_SESSION_NONE) {
+        session_name("admin_session");
+        session_start();
+    }
     if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
         respond(['status' => 'error', 'message' => 'Unauthorized']);
     }
     
     // Decode JSON input
     $data = json_decode(file_get_contents("php://input"), true);
-
+    
     // Validate required fields
     if (
         empty($data['tenant_name']) ||
@@ -1170,7 +1314,7 @@ elseif ($action === 'addMaintenance') {
     ) {
         respond(['status' => 'error', 'message' => 'Missing parameters']);
     }
-
+    
     // Sanitize inputs
     $tenant_name = trim($data['tenant_name']);
     $block = trim($data['block']);
@@ -1178,26 +1322,29 @@ elseif ($action === 'addMaintenance') {
     $floor = trim($data['floor']);
     $phone = trim($data['phone']);
     $maintenance_cost = (float)$data['maintenance_cost'];
-    $user_id = (int)$data['user_id'];  // Convert to integer
-
-    // Check if the user exists in the users table
-    $userCheckStmt = $pdo->prepare("SELECT id FROM users WHERE id = ?");
-    $userCheckStmt->execute([$user_id]);
-
-    if ($userCheckStmt->rowCount() === 0) {
-        respond(['status' => 'error', 'message' => 'User ID does not exist']);
-    }
-
-    // Insert a new maintenance record
-    $stmt = $pdo->prepare("INSERT INTO maintenance (user_id, tenant_name, block, door_number, floor, phone, maintenance_cost, paid_on, status) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, 'unpaid')");
-
-    if ($stmt->execute([$user_id, $tenant_name, $block, $door_number, $floor, $phone, $maintenance_cost])) {
-        respond(['status' => 'success', 'message' => 'Maintenance record added successfully']);
-    } else {
-        respond(['status' => 'error', 'message' => 'Failed to add maintenance record']);
+    $user_id = (int)$data['user_id'];
+    
+    try {
+        // Check if the user exists in the users table
+        $userCheckStmt = $pdo->prepare("SELECT id FROM users WHERE id = ?");
+        $userCheckStmt->execute([$user_id]);
+    
+        if ($userCheckStmt->rowCount() === 0) {
+            respond(['status' => 'error', 'message' => 'User ID does not exist']);
+        }
+    
+        // Insert a new maintenance record
+        $stmt = $pdo->prepare("INSERT INTO maintenance (user_id, tenant_name, block, door_number, floor, phone, maintenance_cost, paid_on, status) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, 'unpaid')");
+    
+        if ($stmt->execute([$user_id, $tenant_name, $block, $door_number, $floor, $phone, $maintenance_cost])) {
+            respond(['status' => 'success', 'message' => 'Maintenance record added successfully']);
+        } else {
+            respond(['status' => 'error', 'message' => 'Failed to add maintenance record']);
+        }
+    } catch (PDOException $e) {
+        respond(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
     }
 }
-
 
 
 else {
