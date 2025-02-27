@@ -34,7 +34,7 @@
           .then(data => {
             console.log("Logout API response:", data); // Debug log
             if (data.success) {
-              window.location.href = 'index.php';
+              window.location.href = 'admin_login.php';
             } else {
               alert('Logout failed!');
             }

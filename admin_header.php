@@ -1,13 +1,13 @@
 <?php
 // admin_header.php
 // Assume session was already started in admin.php. In case this file is used standalone:
-if (session_status() === PHP_SESSION_NONE) {
+  if (session_status() === PHP_SESSION_NONE) {
     session_name("admin_session");
     session_start();
 }
 
 if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
-    header("Location: index.php");
+    header("Location: admin_login.php");
     exit();
 }
 
