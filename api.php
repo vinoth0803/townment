@@ -108,59 +108,6 @@ elseif ($action === 'check_login') {
         respond(['status' => 'error', 'message' => 'Not logged in']);
     }
 }
-
-elseif ($action === 'admin_login') {
-    $input = json_decode(file_get_contents("php://input"), true);
-    $email = $input['email'] ?? '';
-    $password = $input['password'] ?? '';
-
-    if (!$email || !$password) {
-        respond(['status' => 'error', 'message' => 'Email and password required']);
-    }
-
-    try {
-        $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ? AND role = 'admin'");
-        $stmt->execute([$email]);
-        $user = $stmt->fetch(PDO::FETCH_ASSOC);
-
-        if ($user && password_verify($password, $user['password'])) {
-            // Destroy any existing session and clear cookies
-            if (session_status() === PHP_SESSION_ACTIVE) {
-                session_unset();
-                session_destroy();
-            }
-
-            // Set a separate admin session
-            session_name("admin_session");
-            session_start();
-            session_regenerate_id(true);
-
-            $_SESSION['user'] = [
-                'id'    => $user['id'],
-                'email' => $user['email'],
-                'role'  => 'admin'
-            ];
-
-            session_write_close();
-
-            respond([
-                'status'  => 'success',
-                'message' => 'Admin login successful',
-                'user'    => $_SESSION['user']
-            ]);
-        } else {
-            respond(['status' => 'error', 'message' => 'Invalid admin credentials']);
-        }
-    } catch (PDOException $e) {
-        respond(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
-    }
-}
-
-elseif ($action === 'admin_login_page') {
-    header("Location: admin_login.php");
-    exit();
-}
-
 elseif ($action === 'getTenants') {
     // Query to fetch tenant details and gas usage info
     $query = "SELECT 
@@ -1392,27 +1339,8 @@ elseif ($action === 'getMaintenance') {
         respond(['status' => 'error', 'message' => $e->getMessage()]);
     }
 }
-elseif ($action === 'getTenantMaintenance') {
-    // Ensure tenant session is active
-    if (!isset($_SESSION['user'])) {
-        respond(['status' => 'error', 'message' => 'Unauthorized']);
-    }
-    
-    $userId = $_SESSION['user']['id'];
-    $query = "SELECT id, tenant_name, maintenance_cost, due_date, status, paid_on 
-              FROM maintenance 
-              WHERE user_id = ? 
-              ORDER BY id DESC";
-    
-    try {
-        $stmt = $pdo->prepare($query);
-        $stmt->execute([$userId]);
-        $maintenance = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        respond(['status' => 'success', 'maintenance' => $maintenance]);
-    } catch (Exception $e) {
-        respond(['status' => 'error', 'message' => $e->getMessage()]);
-    }
-}
+
+// Assuming your API routing file (e.g., api.php) already includes session management and a respond() helper.
 
 elseif ($action === 'createMaintenanceOrder') {
     if (!isset($_SESSION['user'])) {
@@ -1576,8 +1504,27 @@ elseif ($action === 'captureMaintenancePayment') {
     }
 }
 
-
-
+elseif ($action === 'getTenantMaintenance') {
+    // Ensure tenant session is active
+    if (!isset($_SESSION['user'])) {
+        respond(['status' => 'error', 'message' => 'Unauthorized']);
+    }
+    
+    $userId = $_SESSION['user']['id'];
+    $query = "SELECT id, tenant_name, maintenance_cost, due_date, status, paid_on 
+              FROM maintenance 
+              WHERE user_id = ? 
+              ORDER BY id DESC";
+    
+    try {
+        $stmt = $pdo->prepare($query);
+        $stmt->execute([$userId]);
+        $maintenance = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        respond(['status' => 'success', 'maintenance' => $maintenance]);
+    } catch (Exception $e) {
+        respond(['status' => 'error', 'message' => $e->getMessage()]);
+    }
+}
 else {
     respond(['status' => 'error', 'message' => 'Invalid action']);
 }

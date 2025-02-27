@@ -28,9 +28,7 @@
               <input type="password" id="password" placeholder="Enter your password" required
                      class="w-full border border-white p-2 rounded-full focus:ring-1 focus:ring-[#B82132] focus:outline-none pr-10">
               <button type="button" id="togglePassword" 
-                      class="absolute right-3 top-10 text-gray-500">
-                  👁️
-              </button>
+                      class="absolute right-3 top-10 text-gray-500">👁️</button>
           </div>
 
           <!-- Forgot Password Link -->
@@ -47,13 +45,18 @@
           <!-- Loading Indicator -->
           <div id="loading" class="hidden text-center text-[#B82132] font-semibold">Logging in...</div>
       </form>
+      
+      <!-- Link for Admin Login -->
+      <!-- <div class="mt-4 text-center">
+          <a href="admin_login.php" class="text-sm text-[#B82132] underline">Admin Login</a>
+      </div> -->
   </div>
 
   <script>
     $(document).ready(function () {
-      // Check if the user is already logged in
+      // Check if the user is already logged in (defaulting to tenant login)
       $.ajax({
-          url: "api.php?action=check_login",
+          url: "api.php?action=check_login", // default check_login assumes tenant if role not specified
           type: "GET",
           success: function(response) {
               if (response.status === "success") {

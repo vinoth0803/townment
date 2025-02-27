@@ -1,6 +1,5 @@
 <?php
 // tenant_header.php
-
 if (session_status() === PHP_SESSION_NONE) {
     session_name("tenant_session");
     session_start();
@@ -13,12 +12,13 @@ if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'tenant') {
 
 require_once 'config.php';  
 $tenant = $_SESSION['user'];
+
 // Load additional tenant fields (with defaults)  
 $tenantFields = $_SESSION['tenant_fields'] ?? [
     'tenant_name' => 'Unknown Tenant',
     'door_number' => '',
-    'block' => '',
-    'floor' => ''
+    'block'       => '',
+    'floor'       => ''
 ];
 
 // Retrieve tenant profile photo from the database
@@ -29,6 +29,7 @@ $profile_photo = ($photoRecord && !empty($photoRecord['photo_path']))
     ? $photoRecord['photo_path']
     : 'Assets/Default Profile picture.png';
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">

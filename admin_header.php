@@ -1,7 +1,7 @@
 <?php
 // admin_header.php
-// Assume session was already started in admin.php. In case this file is used standalone:
-  if (session_status() === PHP_SESSION_NONE) {
+// This header requires an active admin session.
+if (session_status() === PHP_SESSION_NONE) {
     session_name("admin_session");
     session_start();
 }
@@ -13,6 +13,7 @@ if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
 
 $admin = $_SESSION['user']; // Contains: id, email, role, etc.
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">
