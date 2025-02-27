@@ -57,24 +57,22 @@ Loading tenant details...</p>
         <p id="profilePhone" class="text-gray-700"></p>
       </div>
       <!-- Update Password Card -->
-      <div class="bg-white p-6 rounded-xl shadow">
-        <h2 class="text-xl font-bold text-[#B82132] mb-4">Update Password</h2>
-        <form id="updatePasswordForm" class="space-y-4">
-          <div>
-            <label class="block text-gray-700">Old Password</label>
-            <input type="password" name="old_password" autocomplete="current-password" required class="w-full border border-gray-300 p-2 rounded-2xl">
-          </div>
-          <div>
-            <label class="block text-gray-700">New Password</label>
-            <input type="password" name="new_password" autocomplete="new-password" required class="w-full border border-gray-300 p-2 rounded-2xl">
-          </div>
-          <div>
-            <label class="block text-gray-700">Confirm New Password</label>
-            <input type="password" name="confirm_password" autocomplete="new-password" required class="w-full border border-gray-300 p-2 rounded-2xl">
-          </div>
-          <button type="submit" class="w-full bg-[#B82132] hover:bg-[#8E1616] text-white p-2 rounded-full">Update Password</button>
-        </form>
-      </div>
+      <!-- Update Password Card -->
+<div class="bg-white p-6 rounded-xl shadow">
+  <h2 class="text-xl font-bold text-[#B82132] mb-4">Update Password</h2>
+  <form id="updatePasswordForm" class="space-y-4">
+    <div>
+      <label class="block text-gray-700">New Password</label>
+      <input type="password" name="new_password" autocomplete="new-password" required class="w-full border border-gray-300 p-2 rounded-2xl">
+    </div>
+    <div>
+      <label class="block text-gray-700">Confirm New Password</label>
+      <input type="password" name="confirm_password" autocomplete="new-password" required class="w-full border border-gray-300 p-2 rounded-2xl">
+    </div>
+    <button type="submit" class="w-full bg-[#B82132] hover:bg-[#8E1616] text-white p-2 rounded-full">Update Password</button>
+  </form>
+</div>
+
     </div>
   </div>
 </div>
@@ -157,7 +155,6 @@ document.getElementById('updatePasswordForm').addEventListener('submit', async f
     return;
   }
   const payload = {
-    old_password: formData.get('old_password'),
     new_password: formData.get('new_password')
   };
   try {
@@ -177,6 +174,7 @@ document.getElementById('updatePasswordForm').addEventListener('submit', async f
     alert("Error updating password.");
   }
 });
+
 
 // Update live date & time in the top bar
 function updateDateTime() {

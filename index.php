@@ -48,7 +48,7 @@
       
       <!-- Link for Admin Login -->
       <!-- <div class="mt-4 text-center">
-          <a href="admin_login.php" class="text-sm text-[#B82132] underline">Admin Login</a>
+          <a href="admin_login.php" class="text-sm text-[#B8213x2] underline">Admin Login</a>
       </div> -->
   </div>
 
