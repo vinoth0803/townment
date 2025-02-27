@@ -1339,6 +1339,191 @@ elseif ($action === 'getMaintenance') {
         respond(['status' => 'error', 'message' => $e->getMessage()]);
     }
 }
+elseif ($action === 'getTenantMaintenance') {
+    // Ensure tenant session is active
+    if (!isset($_SESSION['user'])) {
+        respond(['status' => 'error', 'message' => 'Unauthorized']);
+    }
+    
+    $userId = $_SESSION['user']['id'];
+    $query = "SELECT id, tenant_name, maintenance_cost, due_date, status, paid_on 
+              FROM maintenance 
+              WHERE user_id = ? 
+              ORDER BY id DESC";
+    
+    try {
+        $stmt = $pdo->prepare($query);
+        $stmt->execute([$userId]);
+        $maintenance = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        respond(['status' => 'success', 'maintenance' => $maintenance]);
+    } catch (Exception $e) {
+        respond(['status' => 'error', 'message' => $e->getMessage()]);
+    }
+}
+
+elseif ($action === 'createMaintenanceOrder') {
+    if (!isset($_SESSION['user'])) {
+        respond(['status' => 'error', 'message' => 'Unauthorized']);
+    }
+    $data = json_decode(file_get_contents("php://input"), true);
+    if (empty($data['id'])) {
+        respond(['status'=>'error','message'=>'Missing parameters']);
+    }
+    $recordId = $data['id'];
+
+    // Verify the record belongs to the logged-in tenant and is unpaid.
+    $stmt = $pdo->prepare("SELECT maintenance_cost FROM maintenance WHERE id = ? AND user_id = ? AND status <> 'paid'");
+    $stmt->execute([$recordId, $_SESSION['user']['id']]);
+    $record = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$record) {
+         respond(['status'=>'error','message'=>'No unpaid maintenance record found for this record']);
+    }
+    $amount = $record['maintenance_cost']; // in rupees
+    $amount_paise = $amount * 100; // convert to paise
+    $receipt = 'order_rcptid_' . uniqid();
+    $orderData = [
+       "amount" => $amount_paise,
+       "currency" => "INR",
+       "receipt" => $receipt,
+       "payment_capture" => 1
+    ];
+    $orderDataJson = json_encode($orderData);
+    $keyId = "rzp_test_QBNbWNS9QSRoaK";
+    $keySecret = "iuS4nffZT8HodgJEazNPmAXP";
+    
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, "https://api.razorpay.com/v1/orders");
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_USERPWD, $keyId . ":" . $keySecret);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $orderDataJson);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, ["Content-Type: application/json"]);
+    $response = curl_exec($ch);
+    $err = curl_error($ch);
+    curl_close($ch);
+    if ($err) {
+       respond(['status'=>'error', 'message'=>'cURL Error: ' . $err]);
+    } else {
+       $responseData = json_decode($response, true);
+       if (isset($responseData['id'])) {
+           respond(['status'=>'success', 'order_id'=>$responseData['id'], 'message'=>'Order created successfully']);
+       } else {
+           respond(['status'=>'error', 'message'=>'Order creation failed: ' . $response]);
+       }
+    }
+}
+
+elseif ($action === 'captureMaintenancePayment') {
+    if (!isset($_SESSION['user'])) {
+       respond(['status' => 'error', 'message' => 'Unauthorized']);
+    }
+    
+    $data = json_decode(file_get_contents("php://input"), true);
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        respond(['status'=>'error','message'=>'Invalid JSON input']);
+    }
+    
+    if (
+        empty($data['razorpay_payment_id']) || 
+        empty($data['razorpay_order_id']) || 
+        empty($data['razorpay_signature']) || 
+        empty($data['id'])
+    ) {
+       respond(['status'=>'error','message'=>'Missing parameters']);
+    }
+    
+    // Verify the payment signature manually.
+    $keySecret = "iuS4nffZT8HodgJEazNPmAXP";
+    $generated_signature = hash_hmac(
+        'sha256',
+        $data['razorpay_order_id'] . '|' . $data['razorpay_payment_id'],
+        $keySecret
+    );
+    
+    if ($generated_signature !== $data['razorpay_signature']) {
+        respond(['status'=>'error','message'=>'Payment signature verification failed']);
+    }
+    
+    $recordId = $data['id'];
+    $userId = $_SESSION['user']['id'];
+    
+    // Verify that the record belongs to the logged-in tenant and is unpaid.
+    $stmt = $pdo->prepare("SELECT maintenance_cost, status FROM maintenance WHERE id = ? AND user_id = ? AND status <> 'paid'");
+    $stmt->execute([$recordId, $userId]);
+    $record = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$record) {
+       respond(['status'=>'error','message'=>'No unpaid maintenance record found for this record']);
+    }
+    
+    $amount = $record['maintenance_cost'];
+    $amount_paise = $amount * 100;
+    $paymentId = $data['razorpay_payment_id'];
+    
+    // Prepare Razorpay capture request.
+    $keyId = "rzp_test_QBNbWNS9QSRoaK";
+    $captureUrl = "https://api.razorpay.com/v1/payments/{$paymentId}/capture";
+    $captureData = [
+       "amount"   => $amount_paise,
+       "currency" => "INR"
+    ];
+    $captureDataJson = json_encode($captureData);
+    
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $captureUrl);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_USERPWD, $keyId . ":" . $keySecret);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $captureDataJson);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, ["Content-Type: application/json"]);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+    $response = curl_exec($ch);
+    $err = curl_error($ch);
+    curl_close($ch);
+    
+    if ($err) {
+       respond(['status'=>'error', 'message'=>'cURL Error during capture: ' . $err]);
+    }
+    
+    $responseData = json_decode($response, true);
+    $updateSuccess = false;
+    
+    // Check if Razorpay confirms a successful capture.
+    if (isset($responseData['status']) && $responseData['status'] === 'captured') {
+        $updateSuccess = true;
+    }
+    // If Razorpay returns an error stating the payment "already been captured", treat that as success.
+    else if (isset($responseData['error']) && stripos($responseData['error']['description'], "already been captured") !== false) {
+        $updateSuccess = true;
+    } else {
+       respond(['status'=>'error', 'message'=>'Payment capture failed: ' . $response]);
+    }
+    
+    if ($updateSuccess) {
+       // Record the payment.
+       $stmtInsert = $pdo->prepare("INSERT INTO payments (user_id, payment_id) VALUES (?, ?)");
+       $stmtInsert->execute([$userId, $paymentId]);
+       
+       // Update the maintenance record to mark it as paid.
+       $stmtUpdate = $pdo->prepare("UPDATE maintenance SET status = 'paid', paid_on = NOW() WHERE id = :id AND user_id = :uid AND status <> 'paid'");
+       $stmtUpdate->execute([':id' => $recordId, ':uid' => $userId]);
+       
+       if ($stmtUpdate->rowCount() > 0) {
+           respond(['status'=>'success', 'message'=>'Maintenance fee paid successfully']);
+       } else {
+           // Fallback: verify the status.
+           $stmtCheck = $pdo->prepare("SELECT status FROM maintenance WHERE id = :id");
+           $stmtCheck->execute([':id' => $recordId]);
+           $updatedRecord = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+           if ($updatedRecord && strtolower($updatedRecord['status']) === 'paid') {
+                respond(['status'=>'success', 'message'=>'Maintenance fee paid successfully']);
+           } else {
+                respond(['status'=>'error', 'message'=>'Payment captured but failed to update record']);
+           }
+       }
+    }
+}
+
+
 
 else {
     respond(['status' => 'error', 'message' => 'Invalid action']);

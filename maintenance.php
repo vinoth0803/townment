@@ -38,11 +38,12 @@ include 'admin_header.php';
       <thead class="bg-gray-200 text-gray-700 uppercase text-sm">
         <tr>
           <th class="border px-4 py-2 text-left">Tenant Name</th>
-          <th class="border px-4 py-2 text-left">Block</th>
           <th class="border px-4 py-2 text-left">Door No</th>
-          <th class="border px-4 py-2 text-left">Phone</th>
+          <th class="border px-4 py-2 text-left">Block</th>
+          <th class="border px-4 py-2 text-left">Floor</th>
+          <th class="border px-4 py-2 text-left">Due Date</th>
+          <th class="border px-4 py-2 text-left">Maintenance Cost</th>
           <th class="border px-4 py-2 text-left">Paid On</th>
-          <th class="border px-4 py-2 text-left">Amount</th>
           <th class="border px-4 py-2 text-center">Status</th>
         </tr>
       </thead>
@@ -74,52 +75,46 @@ async function loadMaintenance() {
         let html = '';
 
         if (maints && maints.length > 0) {
-            // Get current date for extra charge calculation
-            const currentDate = new Date();
             maints.forEach(m => {
-                let statusText = 'Unpaid';
-                let statusClass = 'bg-red-500 text-white';
-                let baseCost = parseFloat(m.maintenance_cost) || 0;
-                let extraCharge = 0;
-                
-                if (m.status === 'paid') {
-                    statusText = 'Paid';
-                    statusClass = 'bg-green-500 text-white';
+                let statusClass = '';
+                // Apply color coding based on status
+                if (m.status.toLowerCase() === 'paid') {
+                    statusClass = 'text-green-500';
+                } else if (m.status.toLowerCase() === 'unpaid') {
+                    statusClass = 'text-yellow-500';
+                } else if (m.status.toLowerCase() === 'overdue') {
+                    statusClass = 'text-red-500';
                 } else {
-                    // For unpaid, if current day > 10, add extra 500 for every 5 days overdue
-                    if (currentDate.getDate() > 10) {
-                        let overdueDays = currentDate.getDate() - 10;
-                        let increments = Math.floor(overdueDays / 5);
-                        extraCharge = increments * 500;
-                        statusText = 'Overdue';
-                        statusClass = 'bg-yellow-500 text-white';
-                    }
+                    statusClass = 'bg-gray-500 text-white';
                 }
                 
-                let totalAmount = baseCost + extraCharge;
                 let paidOn = m.paid_on ? m.paid_on : "N/A";
+                let dueDate = m.due_date ? m.due_date : "N/A";
+                let maintenanceCost = m.maintenance_cost ? parseFloat(m.maintenance_cost).toFixed(2) : "0.00";
                 
                 html += `
                     <tr class="border-b hover:bg-gray-100">
                         <td class="border px-4 py-3">${m.tenant_name}</td>
-                        <td class="border px-4 py-3">${m.block}</td>
                         <td class="border px-4 py-3">${m.door_number}</td>
+                        <td class="border px-4 py-3">${m.block}</td>
+                        <td class="border px-4 py-3">${m.floor}</td>
+                        <td class="border px-4 py-3">${dueDate}</td>
+                        <td class="border px-4 py-3">${maintenanceCost}</td>
                         <td class="border px-4 py-3">${paidOn}</td>
-                        <td class="border px-4 py-3">${totalAmount.toFixed(2)}</td>
                         <td class="border px-4 py-3 text-center">
-                            <span class="px-2 py-1 rounded font-bold ${statusClass}">${statusText}</span>
+                            <span class="px-2 py-1 rounded font-bold ${statusClass}">${m.status}</span>
                         </td>
                     </tr>
                 `;
             });
         } else {
-            html = `<tr><td colspan="7" class="text-center py-4 text-gray-500">No maintenance records found.</td></tr>`;
+            html = `<tr><td colspan="8" class="text-center py-4 text-gray-500">No maintenance records found.</td></tr>`;
         }
         
         document.getElementById('maintenanceTable').innerHTML = html;
     } catch (error) {
         console.error('Error fetching maintenance data:', error);
-        document.getElementById('maintenanceTable').innerHTML = `<tr><td colspan="7" class="text-center py-4 text-red-500">Error loading data.</td></tr>`;
+        document.getElementById('maintenanceTable').innerHTML = `<tr><td colspan="8" class="text-center py-4 text-red-500">Error loading data.</td></tr>`;
     }
 }
 
