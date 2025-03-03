@@ -11,8 +11,8 @@ session_start();
   <!-- Tailwind CSS CDN -->
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
-<body class="bg-gradient-to-r from-green-400 to-blue-600 flex items-center justify-center min-h-screen">
-  <div class="bg-white p-10 rounded-lg shadow-lg w-full max-w-md">
+<body class="bg-gray-100 flex items-center justify-center min-h-screen bg-cover bg-center px-4" style="background-image: url('Assets/apartment2.jpeg');">
+  <div class="bg-white p-10 rounded-2xl shadow-lg w-full max-w-md">
     <h1 class="text-3xl font-bold text-center mb-6">Verify OTP</h1>
     <form id="verifyOTPForm">
       <div class="mb-4">
@@ -23,11 +23,11 @@ session_start();
           id="otp" 
           placeholder="Enter the OTP" 
           required 
-          class="w-full p-3 border border-gray-300 rounded focus:outline-none focus:border-green-500">
+          class="w-full p-3 border border-gray-300 rounded-2xl focus:outline-none focus:border-green-500">
       </div>
       <button 
         type="submit" 
-        class="w-full bg-green-500 text-white p-3 rounded hover:bg-green-600 transition duration-200">
+        class="w-full bg-green-500 text-white p-3 rounded-2xl hover:bg-green-600 transition duration-200">
         Verify OTP
       </button>
     </form>

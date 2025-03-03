@@ -11,7 +11,7 @@ session_start();
   <!-- Tailwind CSS CDN -->
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
-<body class="bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center min-h-screen">
+<body class="bg-gray-100 flex items-center justify-center min-h-screen bg-cover bg-center px-4" style="background-image: url('Assets/apartment2.jpeg');">
   <div class="bg-white p-10 rounded-lg shadow-lg w-full max-w-md">
     <h1 class="text-3xl font-bold text-center mb-6">Reset Password</h1>
     <form id="resetPasswordForm">
