@@ -23,34 +23,7 @@ function respond($data) {
     exit();
 }
 
-// Function to send OTP email via Brevo API using the API key stored in your .env file
-function sendOTPEmail($to, $otp) {
-    $apiKey = getenv('BREVO_API_KEY'); // Your Brevo API key
-    $url = 'https://api.brevo.com/v3/smtp/email';
-    
-    $data = [
-        'sender' => ['name' => 'TOWNMENT Support', 'email' => 'vinothkrish0803@gmail.com'],
-        'to' => [['email' => $to]],
-        'subject' => 'Your OTP Code for Password Reset',
-        'htmlContent' => "<p>Your OTP code is: <strong>$otp</strong></p>"
-    ];
-    
-    $ch = curl_init($url);
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
-    curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        'Content-Type: application/json',
-        "api-key: $apiKey"
-    ]);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    $response = curl_exec($ch);
-    if (curl_errno($ch)) {
-        curl_close($ch);
-        return false;
-    }
-    curl_close($ch);
-    return true;
-}
+
 
 // Load .env file
 if (file_exists(__DIR__ . '/.env')) {
@@ -1546,106 +1519,126 @@ elseif ($action === 'getTenantMaintenance') {
         respond(['status' => 'error', 'message' => $e->getMessage()]);
     }
 }
+// --- Forgot Password Endpoints ---
 
-// 1. Request OTP (Forgot Password)
-// Endpoint: api.php?action=forgotPassword
-elseif ($action === 'forgotPassword') {
+elseif ($action === 'sendOTP') {
     $input = json_decode(file_get_contents("php://input"), true);
-    if (!isset($input['email'])) {
-        respond(['status' => 'error', 'message' => 'Email is required']);
+
+    // Check for empty email
+    if (empty($input['email'])) {
+        respond(['status' => 'error', 'message' => 'Email required']);
     }
-    $email = trim($input['email']);
-    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    
+    $email = filter_var($input['email'], FILTER_VALIDATE_EMAIL);
+    if (!$email) {
         respond(['status' => 'error', 'message' => 'Invalid email address']);
     }
-    // Check if the email exists in the users table (using the "mail" field)
-    $stmt = $pdo->prepare("SELECT id FROM users WHERE mail = ?");
-    $stmt->execute([$email]);
-    $user = $stmt->fetch(PDO::FETCH_ASSOC);
-    if (!$user) {
-        respond(['status' => 'error', 'message' => 'Email not found']);
+    
+    // (Optional) Validate that the tenant exists in the database.
+    
+    // Generate a unique 4-digit OTP
+    $otp = rand(1000, 9999);
+    
+    // Store OTP and email in session (you may add an expiration timestamp as needed)
+    $_SESSION['reset_otp']   = $otp;
+    $_SESSION['reset_email'] = $email;
+    
+    // Prepare the email data for Brevo.
+    $apiKey = getenv('BREVO_API_KEY');
+    if (!$apiKey) {
+        respond(['status' => 'error', 'message' => 'Brevo API key not set']);
     }
     
-    // Generate a 4-digit OTP
-    $otp = rand(1000, 9999);
-    // Store OTP and email in the session (for production, consider storing in a dedicated table with an expiry)
-    $_SESSION['password_reset'] = [
-        'email' => $email,
-        'otp' => $otp,
-        'otp_generated_at' => time()
+    $emailData = [
+        "sender" => [
+            "name"  => "TOWNMENT ADMIN - Password Reset",
+            "email" => "vinothkrish0803@gmail.com"
+        ],
+        "to" => [
+            [
+                "email" => $email,
+                "name"  => $email
+            ]
+        ],
+        "subject"     => "Your OTP for Password Reset",
+        "htmlContent" => "<p>Your OTP for password reset is: <strong>$otp</strong></p>"
     ];
     
-    // Send OTP via Brevo API
-    if (sendOTPEmail($email, $otp)) {
-        respond(['status' => 'success', 'message' => 'OTP sent to your email']);
-    } else {
-        respond(['status' => 'error', 'message' => 'Failed to send OTP. Please try again later']);
-    }
-}
-// 2. Resend OTP
-// Endpoint: api.php?action=resendOtp
-elseif ($action === 'resendOtp') {
-    if (!isset($_SESSION['password_reset']) || !isset($_SESSION['password_reset']['email'])) {
-        respond(['status' => 'error', 'message' => 'No password reset session found']);
-    }
-    $email = $_SESSION['password_reset']['email'];
-    // Generate a new OTP
-    $otp = rand(1000, 9999);
-    $_SESSION['password_reset']['otp'] = $otp;
-    $_SESSION['password_reset']['otp_generated_at'] = time();
+    // Send the email using Brevo's REST API via cURL.
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, "https://api.brevo.com/v3/smtp/email");
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($emailData));
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        "accept: application/json",
+        "api-key: $apiKey",
+        "content-type: application/json"
+    ]);
     
-    if (sendOTPEmail($email, $otp)) {
-        respond(['status' => 'success', 'message' => 'OTP resent to your email']);
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    
+    if ($httpCode >= 200 && $httpCode < 300) {
+        respond(['status' => 'success', 'message' => 'OTP sent successfully']);
     } else {
-        respond(['status' => 'error', 'message' => 'Failed to resend OTP. Please try again later']);
+        respond([
+            'status'       => 'error',
+            'message'      => 'OTP sending failed',
+            'api_response' => json_decode($response, true)
+        ]);
     }
 }
-// 3. Verify OTP
-// Endpoint: api.php?action=verifyOtp
-elseif ($action === 'verifyOtp') {
+elseif ($action === 'verifyOTP') {
     $input = json_decode(file_get_contents("php://input"), true);
-    if (!isset($input['otp'])) {
-        respond(['status' => 'error', 'message' => 'OTP is required']);
+    
+    // Check if OTP is provided
+    if (empty($input['otp'])) {
+        respond(['status' => 'error', 'message' => 'OTP required']);
     }
-    $enteredOtp = trim($input['otp']);
-    if (!isset($_SESSION['password_reset']) || !isset($_SESSION['password_reset']['otp'])) {
-        respond(['status' => 'error', 'message' => 'No OTP generated. Please request a new one.']);
+    
+    if (!isset($_SESSION['reset_otp']) || !isset($_SESSION['reset_email'])) {
+        respond(['status' => 'error', 'message' => 'Session expired, please request a new OTP']);
     }
-    if ($enteredOtp == $_SESSION['password_reset']['otp']) {
-        // Mark OTP as verified in the session
-        $_SESSION['password_reset']['verified'] = true;
-        respond(['status' => 'success', 'message' => 'OTP verified']);
+    
+    if (trim($input['otp']) == $_SESSION['reset_otp']) {
+        respond(['status' => 'success', 'message' => 'OTP verified successfully']);
     } else {
-        respond(['status' => 'error', 'message' => 'Incorrect OTP']);
+        respond(['status' => 'error', 'message' => 'Invalid OTP']);
     }
 }
-// 4. Update Password After OTP Verification
-// Endpoint: api.php?action=updatePasswordAfterOtp
-elseif ($action === 'updatePasswordAfterOtp') {
+elseif ($action === 'resetPassword') {
     $input = json_decode(file_get_contents("php://input"), true);
-    if (!isset($_SESSION['password_reset']) || empty($_SESSION['password_reset']['verified'])) {
-        respond(['status' => 'error', 'message' => 'OTP not verified or session expired']);
+    
+    if (empty($input['new_password']) || empty($input['confirm_password'])) {
+        respond(['status' => 'error', 'message' => 'Both password fields are required']);
     }
-    if (!isset($input['new_password']) || !isset($input['confirm_password'])) {
-        respond(['status' => 'error', 'message' => 'Missing parameters']);
-    }
+    
     if ($input['new_password'] !== $input['confirm_password']) {
         respond(['status' => 'error', 'message' => 'Passwords do not match']);
     }
     
-    $email = $_SESSION['password_reset']['email'];
-    $newHash = password_hash($input['new_password'], PASSWORD_DEFAULT);
-    $stmt = $pdo->prepare("UPDATE users SET password = ? WHERE mail = ?");
-    if ($stmt->execute([$newHash, $email])) {
-        // Clear the password reset session data
-        unset($_SESSION['password_reset']);
+    if (!isset($_SESSION['reset_email'])) {
+        respond(['status' => 'error', 'message' => 'Session expired, please request a new OTP']);
+    }
+    
+    $email = $_SESSION['reset_email'];
+    $hashed_password = password_hash($input['new_password'], PASSWORD_DEFAULT);
+    
+    try {
+        $stmt = $pdo->prepare("UPDATE users SET password = ? WHERE email = ?");
+        $stmt->execute([$hashed_password, $email]);
+        
+        // Clear the reset session variables.
+        unset($_SESSION['reset_email']);
+        unset($_SESSION['reset_otp']);
+        
         respond(['status' => 'success', 'message' => 'Password updated successfully']);
-    } else {
-        respond(['status' => 'error', 'message' => 'Failed to update password']);
+    } catch (PDOException $e) {
+        respond(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
     }
 }
-
-
 
 
 else {
