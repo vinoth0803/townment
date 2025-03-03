@@ -22,7 +22,7 @@ $admin = $_SESSION['user']; // Contains: id, email, role, etc.
   <!-- Responsive scaling -->
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><?= $pageTitle ?? "ADMIN Dashboard - TOWNMENT"; ?></title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
   <style>
     /* Keyframes for bell swing animation */
     @keyframes swing {

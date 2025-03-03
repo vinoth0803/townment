@@ -25,7 +25,7 @@ include 'admin_header.php';
     </div>
     <div class="bg-[#F6DED8] p-4 rounded-xl shadow flex flex-col sm:flex-row items-center">
       <input type="text" id="searchUsername" placeholder="Search tenant by username" 
-             class="flex-1 border p-2 rounded-full focus:ring-1 focus:ring-[#B82132] focus:outline-none w-full sm:w-auto">
+             class="flex-1  p-2 rounded-full focus:ring-1 focus:ring-[#B82132] focus:outline-none w-full sm:w-auto">
       <button onclick="searchTenantDashboard()" 
               class="bg-[#B82132] text-[#F6DED8] px-4 py-2 rounded-full mt-2 sm:mt-0 sm:ml-2">Search</button>
     </div>
@@ -39,13 +39,13 @@ include 'admin_header.php';
     <div class="flex flex-col sm:flex-row justify-between items-center mb-4 space-y-4 sm:space-y-0">
       <h2 class="text-xl font-bold">Latest Tenants</h2>
       <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
-        <select id="filterBHK" class="border p-2 rounded-xl w-full sm:w-auto">
+        <select id="filterBHK" class=" p-2 rounded-xl w-full sm:w-auto">
           <option value="">All BHK</option>
           <option value="1BHK">1BHK</option>
           <option value="2BHK">2BHK</option>
           <option value="3BHK">3BHK</option>
         </select>
-        <select id="filterPeriod" class="border p-2 rounded-xl w-full sm:w-auto">
+        <select id="filterPeriod" class=" p-2 rounded-xl w-full sm:w-auto">
           <option value="">All Periods</option>
           <option value="7">Last 7 Days</option>
           <option value="90">Last 3 Months</option>
@@ -109,24 +109,24 @@ include 'admin_header.php';
       let tenants = data.tenants;
       let html = '';
       if (tenants.length > 0) {
-        html += `<table class="min-w-full border">
+        html += `<table class="min-w-full ">
                   <thead>
                     <tr class="bg-gray-200">
-                      <th class="border p-2">Username</th>
-                      <th class="border p-2">Email</th>
-                      <th class="border p-2">Phone</th>
-                      <th class="border p-2">Configuration</th>
-                      <th class="border p-2">Created At</th>
+                      <th class="text-center p-2">Username</th>
+                      <th class="text-center p-2">Email</th>
+                      <th class="text-center p-2">Phone</th>
+                      <th class="text-center p-2">Configuration</th>
+                      <th class="text-center p-2">Created At</th>
                     </tr>
                   </thead>
                   <tbody>`;
         tenants.forEach(t => {
           html += `<tr class="hover:bg-gray-100">
-                    <td class="border p-2">${t.username}</td>
-                    <td class="border p-2">${t.email}</td>
-                    <td class="border p-2">${t.phone}</td>
-                    <td class="border p-2">${t.configuration}</td>
-                    <td class="border p-2">${t.created_at}</td>
+                    <td class="text-center p-2">${t.username}</td>
+                    <td class="text-center p-2">${t.email}</td>
+                    <td class="text-center p-2">${t.phone}</td>
+                    <td class="text-center p-2">${t.configuration}</td>
+                    <td class="text-center p-2">${t.created_at}</td>
                   </tr>`;
         });
         html += `</tbody></table>`;
