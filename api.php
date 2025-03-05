@@ -681,6 +681,159 @@ elseif ($action === 'markAsPaid') {
         respond(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
     }
 }
+
+
+
+
+elseif ($action === 'getAdminProfile') {
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+    // Ensure the logged-in user is an admin.
+    if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
+        respond(['status' => 'error', 'message' => 'Unauthorized']);
+    }
+    $userId = $_SESSION['user']['id'];
+    try {
+        $stmt = $pdo->prepare("SELECT username, email, phone FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        $profile = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($profile) {
+            respond(['status' => 'success', 'profile' => $profile]);
+        } else {
+            respond(['status' => 'error', 'message' => 'Profile not found']);
+        }
+    } catch (PDOException $e) {
+        respond(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
+    }
+}
+
+// ---------------
+// UPLOAD ADMIN PHOTO
+// ---------------
+
+elseif ($action === 'uploadAdminPhoto') {
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+    // Check that the user is an admin.
+    if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
+        respond(['status' => 'error', 'message' => 'Unauthorized']);
+    }
+    // Verify a file was uploaded without error.
+    if (!isset($_FILES['photo']) || $_FILES['photo']['error'] !== UPLOAD_ERR_OK) {
+        respond(['status' => 'error', 'message' => 'File upload failed']);
+    }
+    
+    // Validate file type.
+    $allowed = ['jpg', 'jpeg', 'png', 'gif'];
+    $fileName = $_FILES['photo']['name'];
+    $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+    if (!in_array($ext, $allowed)) {
+        respond(['status' => 'error', 'message' => 'Invalid file type']);
+    }
+    
+    // Define target directory for admin photos.
+    $targetDir = "uploads/admin_photos/";
+    if (!is_dir($targetDir)) {
+        mkdir($targetDir, 0755, true);
+    }
+    
+    // Generate a unique file name.
+    $newFileName = uniqid() . '.' . $ext;
+    $targetFile = $targetDir . $newFileName;
+    
+    if (move_uploaded_file($_FILES['photo']['tmp_name'], $targetFile)) {
+        $adminId = $_SESSION['user']['id'];
+        // Check if a photo record exists for this admin.
+        $stmt = $pdo->prepare("SELECT id FROM admin_photos WHERE user_id = ?");
+        $stmt->execute([$adminId]);
+        if ($stmt->rowCount() > 0) {
+            // Update the existing record.
+            $stmt = $pdo->prepare("UPDATE admin_photos SET photo_path = ?, updated_at = NOW() WHERE user_id = ?");
+            $success = $stmt->execute([$targetFile, $adminId]);
+        } else {
+            // Insert a new record.
+            $stmt = $pdo->prepare("INSERT INTO admin_photos (user_id, photo_path) VALUES (?, ?)");
+            $success = $stmt->execute([$adminId, $targetFile]);
+        }
+        if ($success) {
+            // Optionally update the session.
+            $_SESSION['user']['profile_photo'] = $targetFile;
+            respond([
+                'status'    => 'success',
+                'message'   => 'Photo updated successfully',
+                'photo_url' => $targetFile
+            ]);
+        } else {
+            respond(['status' => 'error', 'message' => 'Failed to update photo in database']);
+        }
+    } else {
+        respond(['status' => 'error', 'message' => 'Failed to move uploaded file']);
+    }
+}
+
+// ---------------
+// UPDATE ADMIN CONTACT INFORMATION (Email & Phone)
+// ---------------
+
+elseif ($action === 'updateContact') {
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+    // Ensure that only admin users can update contact info.
+    if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
+        respond(['status' => 'error', 'message' => 'Unauthorized']);
+    }
+    
+    $input = json_decode(file_get_contents("php://input"), true);
+    if (!isset($input['email']) || !isset($input['phone'])) {
+        respond(['status' => 'error', 'message' => 'Missing parameters: email and phone']);
+    }
+    
+    $userId = $_SESSION['user']['id'];
+    try {
+        $stmt = $pdo->prepare("UPDATE users SET email = ?, phone = ? WHERE id = ?");
+        $success = $stmt->execute([$input['email'], $input['phone'], $userId]);
+        if ($success) {
+            respond(['status' => 'success', 'message' => 'Contact information updated successfully']);
+        } else {
+            respond(['status' => 'error', 'message' => 'Failed to update contact information']);
+        }
+    } catch (PDOException $e) {
+        respond(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
+    }
+}
+
+// ---------------
+// UPDATE PASSWORD (Works for Both Admin and Tenant)
+// ---------------
+
+elseif ($action === 'updatePassword') {
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+    if (!isset($_SESSION['user']) || !in_array($_SESSION['user']['role'], ['tenant', 'admin'])) {
+        respond(['status' => 'error', 'message' => 'Unauthorized']);
+    }
+    
+    $input = json_decode(file_get_contents("php://input"), true);
+    if (!isset($input['new_password'])) {
+        respond(['status' => 'error', 'message' => 'Missing parameter: new_password']);
+    }
+    
+    $userId = $_SESSION['user']['id'];
+    // Securely hash the new password.
+    $newHash = password_hash($input['new_password'], PASSWORD_DEFAULT);
+    $stmt = $pdo->prepare("UPDATE users SET password = ? WHERE id = ?");
+    $success = $stmt->execute([$newHash, $userId]);
+    
+    if ($success) {
+        respond(['status' => 'success', 'message' => 'Password updated successfully']);
+    } else {
+        respond(['status' => 'error', 'message' => 'Failed to update password']);
+    }
+}
 /*---------------------------------------------------------
   7. Add Gas Usage
      Expects JSON body: { "username": "", "usage_date": "YYYY-MM-DD", "usage_amount": number }
