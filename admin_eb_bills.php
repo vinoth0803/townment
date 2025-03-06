@@ -32,30 +32,23 @@ async function fetchEBDebts() {
     const data = await response.json();
     let html = '';
     
-    // Check that the API returned a successful response and non-empty tenants array
     if (data.status === 'success' && data.tenants && data.tenants.length > 0) {
-      data.tenants.forEach(tenant => {
-        // Determine the status styling based on the tenant's status and current date:
-        let statusText = tenant.status;
-        let statusClass = 'text-red-600'; // default "unpaid"
-        const now = new Date();
-        const day = now.getDate();
-        
-        if (tenant.status === 'paid') {
+      data.tenants.forEach(record => {
+        // Determine the status styling:
+        let statusText = record.status;
+        let statusClass = 'text-red-600'; // default for unpaid
+        if (record.status.toLowerCase() === 'paid') {
           statusText = 'Paid';
           statusClass = 'text-green-600';
-        } else if (day > 10) {
-          statusText = 'Overdue';
-          statusClass = 'text-yellow-600';
         }
         
-        let paidOn = tenant.paid_on ? tenant.paid_on : 'N/A';
+        let paidOn = record.paid_on ? record.paid_on : 'N/A';
         html += `
           <tr class="border-b hover:bg-gray-100">
-            <td class="py-3 px-6">${tenant.tenant_name}</td>
-            <td class="py-3 px-6">${tenant.block}</td>
-            <td class="py-3 px-6">${tenant.door_number}</td>
-            <td class="py-3 px-6">${tenant.floor}</td>
+            <td class="py-3 px-6">${record.tenant_name}</td>
+            <td class="py-3 px-6">${record.block}</td>
+            <td class="py-3 px-6">${record.door_number}</td>
+            <td class="py-3 px-6">${record.floor}</td>
             <td class="py-3 px-6">${paidOn}</td>
             <td class="py-3 px-6 text-center font-bold ${statusClass}">${statusText}</td>
           </tr>

@@ -546,12 +546,12 @@ elseif ($action === 'getEBDebts') {
     }
     
     try {
+        // Fetch records from the eb_bill table. Join with users to get tenant phone if needed.
         $stmt = $pdo->query("
-            SELECT tf.tenant_name, tf.block, tf.door_number, tf.floor, eb.paid_on, 
-                   COALESCE(eb.status, 'unpaid') as status 
-            FROM tenant_fields tf 
-            LEFT JOIN eb_bill eb ON tf.user_id = eb.user_id
-            ORDER BY tf.tenant_name ASC
+            SELECT eb.user_id, eb.tenant_name, eb.block, eb.door_number, eb.floor, eb.paid_on, eb.status, u.phone
+            FROM eb_bill eb
+            LEFT JOIN users u ON eb.user_id = u.id
+            ORDER BY eb.paid_on DESC, eb.tenant_name ASC
         ");
         $tenants = $stmt->fetchAll(PDO::FETCH_ASSOC);
         respond(['status' => 'success', 'tenants' => $tenants]);
@@ -559,6 +559,7 @@ elseif ($action === 'getEBDebts') {
         respond(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
     }
 }
+
 
 elseif ($action === 'getTenantEBDebt') {
     if (session_status() === PHP_SESSION_NONE) {
@@ -570,15 +571,21 @@ elseif ($action === 'getTenantEBDebt') {
     
     try {
         $tenantId = $_SESSION['user']['id'];
+        // Get the most recent eb_bill record for the tenant (if any)
         $stmt = $pdo->prepare("
-            SELECT tf.tenant_name, tf.block, tf.door_number, tf.floor, u.phone, 
-                   COALESCE(eb.status, 'unpaid') as status, eb.paid_on 
+            SELECT tf.tenant_name, tf.block, tf.door_number, tf.floor, u.phone, eb.status, eb.paid_on 
             FROM tenant_fields tf 
             JOIN users u ON tf.user_id = u.id 
-            LEFT JOIN eb_bill eb ON tf.user_id = eb.user_id 
+            LEFT JOIN (
+                SELECT *
+                FROM eb_bill
+                WHERE user_id = ?
+                ORDER BY paid_on DESC
+                LIMIT 1
+            ) eb ON tf.user_id = eb.user_id 
             WHERE tf.user_id = ?
         ");
-        $stmt->execute([$tenantId]);
+        $stmt->execute([$tenantId, $tenantId]);
         $eb = $stmt->fetch(PDO::FETCH_ASSOC);
         respond(['status' => 'success', 'eb' => $eb]);
     } catch (PDOException $e) {
@@ -596,19 +603,48 @@ elseif ($action === 'markAsPaid') {
     
     try {
         $tenantId = $_SESSION['user']['id'];
-        $stmt = $pdo->prepare("SELECT id FROM eb_bill WHERE user_id = ?");
+        // Check if a payment for the current month already exists.
+        $stmt = $pdo->prepare("
+            SELECT id 
+            FROM eb_bill 
+            WHERE user_id = ? 
+              AND YEAR(paid_on) = YEAR(CURDATE()) 
+              AND MONTH(paid_on) = MONTH(CURDATE())
+        ");
         $stmt->execute([$tenantId]);
-        
         if ($stmt->rowCount() > 0) {
-            $updateStmt = $pdo->prepare("UPDATE eb_bill SET status = 'paid', paid_on = NOW() WHERE user_id = ?");
-            $success = $updateStmt->execute([$tenantId]);
-        } else {
-            $insertStmt = $pdo->prepare("INSERT INTO eb_bill (user_id, status, paid_on) VALUES (?, 'paid', NOW())");
-            $success = $insertStmt->execute([$tenantId]);
+            // A record already exists for this month.
+            respond(['status' => 'error', 'message' => 'You have already marked your bill as paid for this month.']);
         }
-    
+        
+        // Retrieve tenant details from tenant_fields and users
+        $stmt = $pdo->prepare("
+            SELECT tf.tenant_name, tf.block, tf.door_number, tf.floor, u.phone
+            FROM tenant_fields tf
+            JOIN users u ON tf.user_id = u.id
+            WHERE tf.user_id = ?
+        ");
+        $stmt->execute([$tenantId]);
+        $tenantDetails = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$tenantDetails) {
+            respond(['status' => 'error', 'message' => 'Tenant details not found']);
+        }
+        
+        // Prepare to insert a new eb_bill record for the current month.
+        $stmt = $pdo->prepare("
+            INSERT INTO eb_bill (user_id, tenant_name, block, door_number, floor, paid_on, status)
+            VALUES (?, ?, ?, ?, ?, NOW(), 'paid')
+        ");
+        $success = $stmt->execute([
+            $tenantId,
+            $tenantDetails['tenant_name'],
+            $tenantDetails['block'],
+            $tenantDetails['door_number'],
+            $tenantDetails['floor']
+        ]);
+        
         if ($success) {
-            respond(['status' => 'success', 'message' => 'EB bill marked as paid']);
+            respond(['status' => 'success', 'message' => 'EB bill marked as paid for this month']);
         } else {
             respond(['status' => 'error', 'message' => 'Failed to update EB bill']);
         }

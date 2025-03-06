@@ -35,38 +35,32 @@ $profile_photo = isset($_SESSION['user']['profile_photo']) && !empty($_SESSION['
       const data = await response.json();
       let html = '';
       if (data.status === 'success' && data.eb && Object.keys(data.eb).length > 0) {
-        // data.eb contains tenant-specific eb bill details plus tenant fields
-        const eb = data.eb;
-        // Determine status as per the logic: "paid" if marked paid, otherwise "unpaid" by default,
-        // and "overdue" if current day > 10.
-        let statusText = eb.status;
-        let statusClass = 'text-red-600';
-        const now = new Date();
-        const day = now.getDate();
-        if (eb.status === 'paid') {
-          statusText = 'Paid';
-          statusClass = 'text-green-600';
-        } else if (day > 10) {
-          statusText = 'Overdue';
-          statusClass = 'text-yellow-600';
-        }
-        let paidOn = eb.paid_on ? eb.paid_on : 'N/A';
-        html += `
-          <tr class="border-b hover:bg-gray-100">
-            <td class="py-3 px-6">${eb.tenant_name}</td>
-            <td class="py-3 px-6">${eb.block}</td>
-            <td class="py-3 px-6">${eb.door_number}</td>
-            <td class="py-3 px-6">${eb.phone}</td>
-            <td class="py-3 px-6">${paidOn}</td>
-            <td class="py-3 px-6 text-center font-bold ${statusClass}">${statusText}</td>
-            <td class="py-3 px-6 text-center">
-              ${eb.status === 'paid' ? '' : `<button onclick="markAsPaid()" class="bg-green-500 text-white px-3 py-1 rounded">Mark as Paid</button>`}
-            </td>
-          </tr>
-        `;
-      } else {
-        html = `<tr><td colspan="7" class="text-center py-4">No EB bill details found.</td></tr>`;
-      }
+    const eb = data.eb;
+    let statusText = eb.status;
+    let statusClass = 'text-red-600';
+    if (eb.status === 'paid') {
+        statusText = 'Paid';
+        statusClass = 'text-green-600';
+    }
+    let paidOn = eb.paid_on ? eb.paid_on : 'N/A';
+    html += `
+      <tr class="border-b hover:bg-gray-100">
+        <td class="py-3 px-6">${eb.tenant_name}</td>
+        <td class="py-3 px-6">${eb.block}</td>
+        <td class="py-3 px-6">${eb.door_number}</td>
+        <td class="py-3 px-6">${eb.phone}</td>
+        <td class="py-3 px-6">${paidOn}</td>
+        <td class="py-3 px-6 text-center font-bold ${statusClass}">${statusText}</td>
+        <td class="py-3 px-6 text-center">
+          ${eb.status === 'paid' ? '' : `<button onclick="markAsPaid()" class="bg-green-500 text-white px-3 py-1 rounded">Mark as Paid</button>`}
+        </td>
+      </tr>
+    `;
+} else {
+    // Render "No EB bill details found" if no record exists.
+    html = `<tr><td colspan="7" class="text-center py-4">No EB bill details found.</td></tr>`;
+}
+
       document.getElementById('tenantEbTable').innerHTML = html;
     } catch (error) {
       console.error("Error fetching tenant EB bill:", error);

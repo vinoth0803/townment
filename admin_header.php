@@ -9,6 +9,8 @@ if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
     exit();
 }
 
+
+
 $admin = $_SESSION['user'];
 ?>
 
@@ -61,7 +63,7 @@ $admin = $_SESSION['user'];
       transition: transform 0.3s ease-in-out;
     }
     .sidebar a { 
-      color: white;
+      color: white !important;
       border-radius: 5px;
     }
     /* Active sidebar link: white background with #d2665a text and icons */
@@ -121,15 +123,13 @@ $admin = $_SESSION['user'];
       <div id="dateTime" class="text-[#B82132]"></div>
       <!-- Profile Icon that redirects to admin_profile.php when clicked -->
       <div class="relative">
-        <a href="admin_profile.php" class="focus:outline-none">
-          <button id="profileIcon">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-7">
-              <path fill-rule="evenodd" d="M18.685 19.097A9.723 9.723 0 0 0 21.75 12c0-5.385-4.365-9.75-9.75-9.75S2.25 6.615 2.25 12a9.723 9.723 0 0 0 3.065 7.097A9.716 9.716 0 0 0 12 21.75a9.716 9.716 0 0 0 6.685-2.653Z" clip-rule="evenodd" />
-              <path d="M15.75 9a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
-            </svg>
-          </button>
-        </a>
-      </div>
+  <a href="admin_profile.php" class="focus:outline-none">
+    <button id="profileIcon" class="w-10 h-10 rounded-full overflow-hidden">
+      <img src="<?php echo htmlspecialchars($admin['profile_photo'] ?? 'Assets/Default Profile picture.png'); ?>" alt="Admin Profile" class="w-full h-full object-cover">
+    </button>
+  </a>
+</div>
+
   </nav>
 
   <!-- Mobile Sidebar Toggle Button (positioned top-left) -->
