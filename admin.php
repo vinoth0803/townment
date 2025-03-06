@@ -2,7 +2,6 @@
 // admin.php
 
 if (session_status() === PHP_SESSION_NONE) {
-  session_name("admin_session");
     session_start();
 }
 
@@ -15,6 +14,7 @@ if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
 $pageTitle = "Dashboard - TOWNMENT";
 include 'admin_header.php';
 ?>
+
 
 <div class="space-y-6 p-4 sm:p-6 lg:p-8">
   <!-- Row 1: Total Tenants and Search Bar -->

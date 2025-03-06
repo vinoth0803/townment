@@ -1,17 +1,15 @@
 <?php
 // admin_header.php
-// This header requires an active admin session.
 if (session_status() === PHP_SESSION_NONE) {
-    session_name("admin_session");
     session_start();
 }
 
 if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
-    header("Location: admin_login.php");
+    header("Location: index.php");
     exit();
 }
 
-$admin = $_SESSION['user']; // Contains: id, email, role, etc.
+$admin = $_SESSION['user'];
 ?>
 
 
@@ -121,22 +119,17 @@ $admin = $_SESSION['user']; // Contains: id, email, role, etc.
       </button>
       <!-- Live Date & Time -->
       <div id="dateTime" class="text-[#B82132]"></div>
-      <!-- Profile Icon & Dropdown -->
+      <!-- Profile Icon that redirects to admin_profile.php when clicked -->
       <div class="relative">
-        <button id="profileIcon" class="focus:outline-none">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-7">
-  <path fill-rule="evenodd" d="M18.685 19.097A9.723 9.723 0 0 0 21.75 12c0-5.385-4.365-9.75-9.75-9.75S2.25 6.615 2.25 12a9.723 9.723 0 0 0 3.065 7.097A9.716 9.716 0 0 0 12 21.75a9.716 9.716 0 0 0 6.685-2.653Zm-12.54-1.285A7.486 7.486 0 0 1 12 15a7.486 7.486 0 0 1 5.855 2.812A8.224 8.224 0 0 1 12 20.25a8.224 8.224 0 0 1-5.855-2.438ZM15.75 9a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" clip-rule="evenodd" />
-</svg>
-
-        </button>
-        <div id="profileDropdown" class="absolute right-0 mt-2 w-48 bg-white border rounded-lg shadow-md p-3 hidden">
-          <p class="font-bold text-[#B82132]">Admin Details</p>
-          <p id="adminUsername" class="text-sm text-[#B82132]"></p>
-          <p id="adminEmail" class="text-sm text-[#B82132]"></p>
-          <p id="adminPhone" class="text-sm text-[#B82132]"></p>
-        </div>
+        <a href="admin_profile.php" class="focus:outline-none">
+          <button id="profileIcon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="size-7">
+              <path fill-rule="evenodd" d="M18.685 19.097A9.723 9.723 0 0 0 21.75 12c0-5.385-4.365-9.75-9.75-9.75S2.25 6.615 2.25 12a9.723 9.723 0 0 0 3.065 7.097A9.716 9.716 0 0 0 12 21.75a9.716 9.716 0 0 0 6.685-2.653Z" clip-rule="evenodd" />
+              <path d="M15.75 9a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
+            </svg>
+          </button>
+        </a>
       </div>
-    </div>
   </nav>
 
   <!-- Mobile Sidebar Toggle Button (positioned top-left) -->

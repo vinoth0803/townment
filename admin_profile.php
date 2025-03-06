@@ -1,5 +1,6 @@
 <?php
 $pageTitle = "Admin Profile - TOWNMENT";
+include 'config.php';
 include 'admin_header.php';
 
 // Fetch the admin photo from the "admin_photos" table.

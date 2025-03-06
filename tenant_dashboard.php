@@ -2,7 +2,6 @@
 // tenant_dashboard.php
 
 if (session_status() === PHP_SESSION_NONE) {
-    session_name("tenant_session");
     session_start();
 }
 
@@ -22,6 +21,7 @@ $profile_photo = ($photoRecord && !empty($photoRecord['photo_path']))
     ? $photoRecord['photo_path']
     : 'Assets/Default Profile picture.png';
 ?>
+
 
 <div class="space-y-6 p-4 sm:p-6 lg:p-8">
   <!-- Row 1: User Profile Card -->
