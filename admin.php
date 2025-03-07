@@ -24,11 +24,11 @@ include 'admin_header.php';
       <p id="totalTenants" class="text-3xl text-center text-white"></p>
     </div>
     <div class="bg-[#F6DED8] p-4 rounded-xl shadow flex flex-col sm:flex-row items-center">
-      <input type="text" id="searchUsername" placeholder="Search tenant by username" 
-             class="flex-1  p-2 rounded-full focus:ring-1 focus:ring-[#B82132] focus:outline-none w-full sm:w-auto">
-      <button onclick="searchTenantDashboard()" 
-              class="bg-[#B82132] text-[#F6DED8] px-4 py-2 rounded-full mt-2 sm:mt-0 sm:ml-2">Search</button>
-    </div>
+  <input type="text" id="searchUsername" placeholder="Search tenant by username" 
+         class="flex-1 p-2 rounded-full focus:ring-1 focus:ring-[#B82132] focus:outline-none w-full sm:w-auto">
+  <button onclick="searchTenantDashboard()" 
+          class="bg-[#B82132] text-[#F6DED8] px-4 py-2 rounded-full mt-2 sm:mt-0 sm:ml-2">Search</button>
+</div>
   </div>
 
   <!-- Row 2: Newly Raised Tickets Reminder -->
@@ -145,7 +145,9 @@ include 'admin_header.php';
       let username = document.getElementById('searchUsername').value;
       const res = await fetch('api.php?action=searchTenant&username=' + encodeURIComponent(username));
       const data = await res.json();
-      document.getElementById('tenantsTable').innerHTML = data.tenants.length > 0 ? `<p>Results found.</p>` : `<p>No tenants found.</p>`;
+      document.getElementById('tenantsTable').innerHTML = data.tenants.length > 0 
+        ? `<p>Results found.</p>` 
+        : `<p>No tenants found.</p>`;
     } catch (error) {
       console.error("Error searching tenants:", error);
     }
