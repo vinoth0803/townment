@@ -141,17 +141,42 @@ include 'admin_header.php';
 
   // Search tenants by username
   async function searchTenantDashboard() {
-    try {
-      let username = document.getElementById('searchUsername').value;
-      const res = await fetch('api.php?action=searchTenant&username=' + encodeURIComponent(username));
-      const data = await res.json();
-      document.getElementById('tenantsTable').innerHTML = data.tenants.length > 0 
-        ? `<p>Results found.</p>` 
-        : `<p>No tenants found.</p>`;
-    } catch (error) {
-      console.error("Error searching tenants:", error);
+  try {
+    let username = document.getElementById('searchUsername').value;
+    const res = await fetch('api.php?action=searchTenant&username=' + encodeURIComponent(username));
+    const data = await res.json();
+
+    if (data.status === 'success' && data.tenants.length > 0) {
+      let html = `<table class="min-w-full">
+                    <thead>
+                      <tr class="bg-gray-200">
+                        <th class="text-center p-2">Username</th>
+                        <th class="text-center p-2">Email</th>
+                        <th class="text-center p-2">Phone</th>
+                        <th class="text-center p-2">Configuration</th>
+                        <th class="text-center p-2">Created At</th>
+                      </tr>
+                    </thead>
+                    <tbody>`;
+      data.tenants.forEach(tenant => {
+        html += `<tr class="hover:bg-gray-100">
+                    <td class="text-center p-2">${tenant.username}</td>
+                    <td class="text-center p-2">${tenant.email}</td>
+                    <td class="text-center p-2">${tenant.phone}</td>
+                    <td class="text-center p-2">${tenant.configuration}</td>
+                    <td class="text-center p-2">${tenant.created_at}</td>
+                 </tr>`;
+      });
+      html += `</tbody></table>`;
+      document.getElementById('tenantsTable').innerHTML = html;
+    } else {
+      document.getElementById('tenantsTable').innerHTML = `<p>No tenants found.</p>`;
     }
+  } catch (error) {
+    console.error("Error searching tenants:", error);
   }
+}
+
 
   window.onload = function () {
     loadTotalTenants();

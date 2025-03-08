@@ -447,7 +447,19 @@ elseif ($action === 'searchTenant') {
     
     try {
         $search = $_GET['username'] ?? '';
-        $stmt = $pdo->prepare("SELECT username, email, phone FROM users WHERE role = 'tenant' AND username LIKE ?");
+        // Join the users table with tenant_fields to retrieve configuration
+        $stmt = $pdo->prepare("
+            SELECT 
+              users.username, 
+              users.email, 
+              users.phone, 
+              tenant_fields.configuration, 
+              users.created_at 
+            FROM users 
+            LEFT JOIN tenant_fields ON users.id = tenant_fields.user_id 
+            WHERE users.role = 'tenant' 
+              AND users.username LIKE ?
+        ");
         $stmt->execute(['%' . $search . '%']);
         $tenants = $stmt->fetchAll(PDO::FETCH_ASSOC);
         respond(['status' => 'success', 'tenants' => $tenants]);
@@ -455,6 +467,7 @@ elseif ($action === 'searchTenant') {
         respond(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
     }
 }
+
 elseif ($action === 'deleteTenant') {
     // Start session if not active.
     if (session_status() === PHP_SESSION_NONE) {

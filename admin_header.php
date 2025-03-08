@@ -4,11 +4,20 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+require 'config.php';
+
 if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
     header("Location: index.php");
     exit();
 }
 
+// Fetch updated photo from the database
+$stmt = $pdo->prepare("SELECT photo_path FROM admin_photos WHERE user_id = ?");
+$stmt->execute([$_SESSION['user']['id']]);
+$photoRecord = $stmt->fetch(PDO::FETCH_ASSOC);
+$profile_photo = ($photoRecord && !empty($photoRecord['photo_path']))
+    ? $photoRecord['photo_path']
+    : 'Assets/Default Profile picture.png';
 
 
 $admin = $_SESSION['user'];
@@ -126,11 +135,10 @@ $admin = $_SESSION['user'];
       <div class="relative">
   <a href="admin_profile.php" class="focus:outline-none">
     <button id="profileIcon" class="w-10 h-10 rounded-full overflow-hidden">
-      <img src="<?php echo htmlspecialchars($admin['profile_photo'] ?? 'Assets/Default Profile picture.png'); ?>" alt="Admin Profile" class="w-full h-full object-cover">
+      <img src="<?php echo htmlspecialchars($profile_photo); ?>" alt="Admin Profile" class="w-full h-full object-cover">
     </button>
   </a>
 </div>
-
   </nav>
 
   <!-- Mobile Sidebar Toggle Button (positioned top-left) -->
