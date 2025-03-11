@@ -3,17 +3,20 @@
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
-// Always use the default session settings.
-if (session_status() === PHP_SESSION_NONE) {
+// Start the session only if it's not already active.
+if (session_status() !== PHP_SESSION_ACTIVE) {
     session_set_cookie_params(0, '/');
     session_start();
 }
+
 require 'config.php';
+
 function respond($data) {
     header('Content-Type: application/json');
     echo json_encode($data);
     exit();
 }
+
 // Load .env file if available.
 if (file_exists(__DIR__ . '/.env')) {
     $env = parse_ini_file(__DIR__ . '/.env');
@@ -25,6 +28,7 @@ if (file_exists(__DIR__ . '/.env')) {
 $action = $_GET['action'] ?? '';
 
 if ($action === 'login') {
+    // Get input data.
     $input = json_decode(file_get_contents("php://input"), true);
     $email = $input['email'] ?? '';
     $password = $input['password'] ?? '';
@@ -32,20 +36,29 @@ if ($action === 'login') {
     if (!$email || !$password) {
         respond(['status' => 'error', 'message' => 'Email and password required']);
     }
-
+    
+    // Check if the user is currently locked out.
+    if (isset($_SESSION['lockout_time']) && time() < $_SESSION['lockout_time']) {
+         $remaining = $_SESSION['lockout_time'] - time();
+         respond([
+             'status' => 'error', 
+             'message' => 'Too many invalid attempts. Please wait.',
+             'lockout_remaining' => $remaining
+         ]);
+    }
+    
     try {
         $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ?");
         $stmt->execute([$email]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($user && password_verify($password, $user['password'])) {
-            if (session_status() === PHP_SESSION_ACTIVE) {
-                session_unset();
-                session_destroy();
-            }
-            session_start();
-            session_regenerate_id(true);
+            // Reset the failed attempts on successful login.
+            unset($_SESSION['failed_attempts']);
+            unset($_SESSION['lockout_time']);
 
+            // Regenerate session and set user data.
+            session_regenerate_id(true);
             $_SESSION['user'] = [
                 'id'    => $user['id'],
                 'email' => $user['email'],
@@ -58,16 +71,33 @@ if ($action === 'login') {
                 'user'    => $_SESSION['user']
             ]);
         } else {
-            respond(['status' => 'error', 'message' => 'Invalid credentials']);
+            // Increment the failed login counter.
+            if (!isset($_SESSION['failed_attempts'])) {
+                $_SESSION['failed_attempts'] = 0;
+            }
+            $_SESSION['failed_attempts']++;
+
+            // If 5 or more failed attempts, set a 30‑second lockout.
+            if ($_SESSION['failed_attempts'] >= 5) {
+                $_SESSION['lockout_time'] = time() + 30; // 30‑second lockout
+                $_SESSION['failed_attempts'] = 0; // reset counter (optional)
+                $remaining = 30;
+                respond([
+                    'status' => 'error', 
+                    'message' => 'Too many invalid attempts. Please wait.',
+                    'lockout_remaining' => $remaining
+                ]);
+            } else {
+                respond(['status' => 'error', 'message' => 'Invalid credentials']);
+            }
         }
     } catch (PDOException $e) {
         respond(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
     }
 }
-
 elseif ($action === 'check_login') {
-    // Start the default session.
-    if (session_status() === PHP_SESSION_NONE) {
+    // Ensure the session is active.
+    if (session_status() !== PHP_SESSION_ACTIVE) {
         session_start();
     }
     $user = $_SESSION['user'] ?? null;
@@ -79,6 +109,7 @@ elseif ($action === 'check_login') {
         respond(['status' => 'error', 'message' => 'Not logged in']);
     }
 }
+
 
 // (Other API actions such as uploadAdminPhoto, updateContact, etc. remain unchanged.)
 
@@ -1114,13 +1145,14 @@ elseif ($action === 'getNotifications') {
     }
     
     try {
-        $stmt = $pdo->query("SELECT id, message, created_at FROM notifications ORDER BY created_at DESC");
+        $stmt = $pdo->query("SELECT id, subject, message, created_at FROM notifications ORDER BY created_at DESC");
         $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
         respond(['status' => 'success', 'notifications' => $notifications]);
     } catch (PDOException $e) {
         respond(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
     }
 }
+
 
 /*---------------------------------------------------------
   9. Notification: Send Notification
@@ -1129,7 +1161,10 @@ elseif ($action === 'getNotifications') {
 elseif ($action === 'sendNotification') {
     $input = json_decode(file_get_contents("php://input"), true);
     
-    // Check for empty message
+    // Validate required fields
+    if (empty($input['subject'])) {
+        respond(['status' => 'error', 'message' => 'Subject required']);
+    }
     if (empty($input['message'])) {
         respond(['status' => 'error', 'message' => 'Message required']);
     }
@@ -1143,9 +1178,9 @@ elseif ($action === 'sendNotification') {
     }
     
     try {
-        // 1. Insert the notification into the database.
-        $stmt = $pdo->prepare("INSERT INTO notifications (message) VALUES (?)");
-        $stmt->execute([$input['message']]);
+        // 1. Insert the notification (subject and message) into the database.
+        $stmt = $pdo->prepare("INSERT INTO notifications (subject, message) VALUES (?, ?)");
+        $stmt->execute([$input['subject'], $input['message']]);
     
         // 2. Fetch all tenant emails and names.
         $query = "SELECT u.email, tf.tenant_name 
@@ -1166,19 +1201,32 @@ elseif ($action === 'sendNotification') {
             respond(['status' => 'error', 'message' => 'No tenant emails found to send notification']);
         }
     
-        // 3. Prepare the email data for Brevo.
+        // 3. Fetch the admin's email from the users table.
+        $stmtAdmin = $pdo->prepare("SELECT email FROM users WHERE role = 'admin' LIMIT 1");
+        $stmtAdmin->execute();
+        $admin = $stmtAdmin->fetch(PDO::FETCH_ASSOC);
+        if (!$admin) {
+            respond(['status' => 'error', 'message' => 'Admin email not found']);
+        }
+        $senderEmail = $admin['email'];
+    
+        // 4. Prepare the email data for Brevo.
         $apiKey = getenv('BREVO_API_KEY');
+        if (!$apiKey) {
+            respond(['status' => 'error', 'message' => 'Brevo API Key not set']);
+        }
+    
         $emailData = [
             "sender" => [
                 "name"  => "Townment Admin Notification",
-                "email" => "vinothkrish0803@gmail.com"
+                "email" => $senderEmail
             ],
             "to" => $recipients,
-            "subject" => "New Notification from Admin",
+            "subject" => $input['subject'],
             "htmlContent" => "<p>" . nl2br(htmlentities($input['message'])) . "</p>"
         ];
     
-        // 4. Send the email using Brevo's REST API (using cURL)
+        // 5. Send the email using Brevo's REST API (using cURL)
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, "https://api.brevo.com/v3/smtp/email");
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -1191,6 +1239,7 @@ elseif ($action === 'sendNotification') {
         ]);
     
         $response = curl_exec($ch);
+        $curlError = curl_error($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
     
@@ -1200,13 +1249,16 @@ elseif ($action === 'sendNotification') {
             respond([
                 'status' => 'error',
                 'message' => 'Notification saved but email sending failed',
-                'api_response' => json_decode($response, true)
+                'api_response' => json_decode($response, true),
+                'curl_error' => $curlError
             ]);
         }
     } catch (PDOException $e) {
         respond(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
     }
 }
+
+
 
 /*---------------------------------------------------------
  10. Tickets: Get All Raised Tickets

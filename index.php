@@ -13,6 +13,9 @@
   <div class="bg-[#F6DED8] p-6 rounded-3xl shadow-md w-full max-w-sm sm:max-w-md bg-opacity-90">
       <h2 class="text-2xl font-bold mb-4 text-center text-[#B82132]">TOWNMENT LOGIN</h2>
       <div id="error-message" class="bg-red-200 text-red-800 p-2 rounded-full mb-4 hidden"></div>
+      
+      <!-- Lockout Timer Display -->
+      <div id="lockout-timer" class="text-center text-black-500 font-semibold"></div>
 
       <form id="login-form" class="space-y-4">
           <!-- Email Input -->
@@ -66,6 +69,9 @@
                   let redirectPage = (response.user.role === "admin") ? "admin.php" : "tenant_dashboard.php";
                   window.location.href = redirectPage;
               }
+          },
+          error: function(xhr, status, error) {
+              console.error("Error checking login status:", status, error);
           }
       });
 
@@ -94,16 +100,36 @@
               data: JSON.stringify({ email: email, password: password }),
               success: function(response) {
                   $("#loading").addClass("hidden");
-                  $("#login-btn").prop("disabled", false);
+                  
                   if (response.status === "success") {
                       alert("Login successful!");
                       let redirectPage = (response.user.role === "admin") ? "admin.php" : "tenant_dashboard.php";
                       window.location.href = redirectPage;
                   } else {
                       $("#error-message").text(response.message).removeClass("hidden");
+                      
+                      // If lockout is active, start a countdown timer.
+                      if (response.lockout_remaining) {
+                          let remaining = response.lockout_remaining;
+                          $("#login-btn").prop("disabled", true);
+                          $("#lockout-timer").text("Please wait " + remaining + " seconds before trying again.");
+                          
+                          var interval = setInterval(function() {
+                              remaining--;
+                              $("#lockout-timer").text("Please wait " + remaining + " seconds before trying again.");
+                              if (remaining <= 0) {
+                                  clearInterval(interval);
+                                  $("#lockout-timer").text("");
+                                  $("#login-btn").prop("disabled", false);
+                              }
+                          }, 1000);
+                      } else {
+                          $("#login-btn").prop("disabled", false);
+                      }
                   }
               },
-              error: function() {
+              error: function(xhr, status, error) {
+                  console.error("AJAX error:", status, error, xhr.responseText);
                   $("#error-message").text("Something went wrong! Please try again.").removeClass("hidden");
                   $("#loading").addClass("hidden");
                   $("#login-btn").prop("disabled", false);

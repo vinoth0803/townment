@@ -16,11 +16,19 @@ include 'admin_header.php';
     <div>
       <h2 class="text-2xl font-bold text-gray-800 mb-4">Send Notification to All Residents</h2>
       <form id="sendNotificationForm" class="bg-white shadow-md rounded-lg p-6 space-y-6">
+        <!-- Subject Input Field -->
+        <div>
+          <label for="subject" class="block text-lg font-medium text-gray-700">Subject</label>
+          <input type="text" id="subject" name="subject" required 
+                 class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+        </div>
         <div>
           <label for="message" class="block text-lg font-medium text-gray-700">Message</label>
-          <textarea id="message" name="message" required rows="4" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"></textarea>
+          <textarea id="message" name="message" required rows="4" 
+                    class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"></textarea>
         </div>
-        <button type="submit" class="w-full py-2 px-4 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 transition">
+        <button type="submit" 
+                class="w-full py-2 px-4 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 transition">
           Send Notification
         </button>
       </form>
@@ -37,6 +45,7 @@ include 'admin_header.php';
     if(data.notifications && data.notifications.length > 0){
       data.notifications.forEach(n => {
         html += `<div class="p-4 bg-white shadow rounded-lg">
+                    <p class="text-gray-800 font-bold">${n.subject}</p>
                     <p class="text-gray-800">${n.message}</p>
                     <small class="text-gray-500">${n.created_at}</small>
                  </div>`;
