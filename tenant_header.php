@@ -39,8 +39,8 @@ $profile_photo = ($photoRecord && !empty($photoRecord['photo_path']))
   <!-- Responsive scaling -->
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Tenant Dashboard - TOWNMENT</title>
-  <link rel="stylesheet" href="style.css">
-  <!-- <script src="https://unpkg.com/@tailwindcss/browser@4"></script> -->
+  <!-- <link rel="stylesheet" href="style.css"> -->
+  <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
   <style>
     /* Top Bar: white background; text/icons: #B82132 */
     .top-navbar {

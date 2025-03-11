@@ -9,10 +9,7 @@ include 'tenant_header.php';
       <thead class="bg-gray-200 text-gray-700 uppercase text-sm">
         <tr>
           <th class="py-3 px-6 text-left">Tenant Name</th>
-          <th class="py-3 px-6 text-left">Block</th>
-          <th class="py-3 px-6 text-left">Door No</th>
-          <th class="py-3 px-6 text-left">Phone No</th>
-          <th class="py-3 px-6 text-left">Gas Consumed</th>
+          <th class="py-3 px-6 text-left">Gas Consumed (kg)</th>
           <th class="py-3 px-6 text-left">Amount (₹)</th>
           <th class="py-3 px-6 text-left">Bill Date</th>
           <th class="py-3 px-6 text-left">Due Date</th>
@@ -45,9 +42,6 @@ async function loadGasUsage() {
         html += `
           <tr class="border-b hover:bg-gray-100">
             <td class="py-3 px-6">${item.tenant_name}</td>
-            <td class="py-3 px-6">${item.block}</td>
-            <td class="py-3 px-6">${item.door_number}</td>
-            <td class="py-3 px-6">${item.phone}</td>
             <td class="py-3 px-6">${item.gas_consumed}</td>
             <td class="py-3 px-6">${parseFloat(item.amount).toFixed(2)}</td>
             <td class="py-3 px-6">${item.bill_date}</td>

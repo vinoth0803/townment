@@ -878,6 +878,43 @@ elseif ($action === 'updateGasBill') {
         respond(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
     }
 }
+
+
+elseif ($action === 'getGasDetails') {
+    // Ensure admin session is active
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+    if (!isset($_SESSION['user']) || $_SESSION['user']['role'] !== 'admin') {
+        respond(['status' => 'error', 'message' => 'Unauthorized']);
+    }
+
+    // Retrieve filter parameters if provided
+    $statusFilter = $_GET['status'] ?? '';
+    $tenantUsernameFilter = $_GET['tenant_username'] ?? '';
+
+    $sql = "SELECT tenant_username, gas_consumed, amount, due_date, status, paid_on FROM gas_usage WHERE 1=1";
+    $params = [];
+    if ($statusFilter) {
+        $sql .= " AND status = ?";
+        $params[] = $statusFilter;
+    }
+    if ($tenantUsernameFilter) {
+        $sql .= " AND tenant_username LIKE ?";
+        $params[] = "%" . $tenantUsernameFilter . "%";
+    }
+    $sql .= " ORDER BY due_date DESC";
+
+    try {
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        respond(['status' => 'success', 'gasUsage' => $rows]);
+    } catch (PDOException $e) {
+        respond(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
+    }
+}
+
 // ---------------
 // GET GAS USAGE (Tenant Only)
 // ---------------
@@ -1324,16 +1361,17 @@ elseif ($action === 'raiseTicket') {
     }
     
     $data = json_decode(file_get_contents("php://input"), true);
-    if (empty($data['issue'])) {
-        respond(['status' => 'error', 'message' => 'Issue description is required']);
+    if (empty($data['issue']) || empty($data['issue_description'])) {
+        respond(['status' => 'error', 'message' => 'Issue and issue description are required']);
     }
     
     $user_id = $_SESSION['user']['id'];
     $issue = trim($data['issue']);
+    $issue_description = trim($data['issue_description']);
     
     try {
-        $stmt = $pdo->prepare("INSERT INTO tickets (user_id, issue, status) VALUES (?, ?, 'opened')");
-        if ($stmt->execute([$user_id, $issue])) {
+        $stmt = $pdo->prepare("INSERT INTO tickets (user_id, issue, issue_description, status) VALUES (?, ?, ?, 'opened')");
+        if ($stmt->execute([$user_id, $issue, $issue_description])) {
             respond(['status' => 'success', 'message' => 'Ticket raised successfully']);
         } else {
             respond(['status' => 'error', 'message' => 'Failed to raise ticket']);
@@ -1342,6 +1380,7 @@ elseif ($action === 'raiseTicket') {
         respond(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
     }
 }
+
 
 elseif ($action === 'getNewTickets') {
     // Ensure admin session is active
@@ -1379,7 +1418,8 @@ elseif ($action === 'getTickets') {
     
     $user = $_SESSION['user'];
     $params = [];
-    $query = "SELECT raised_date, issue, status FROM tickets ";
+    // Updated query to include issue_description
+    $query = "SELECT raised_date, issue, issue_description, status FROM tickets ";
     
     // Restrict tenants to only their tickets
     if ($user['role'] === 'tenant') {
@@ -1414,6 +1454,7 @@ elseif ($action === 'getTickets') {
         respond(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
     }
 }
+
 
 /*---------------------------------------------------------
  12. Maintenance: Get Maintenance Records 

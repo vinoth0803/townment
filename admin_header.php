@@ -31,8 +31,8 @@ $admin = $_SESSION['user'];
   <!-- Responsive scaling -->
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><?= $pageTitle ?? "ADMIN Dashboard - TOWNMENT"; ?></title>
-  <link rel="stylesheet" href="style.css">
-  <!-- <script src="https://unpkg.com/@tailwindcss/browser@4"></script> -->
+  <!-- <link rel="stylesheet" href="style.css"> -->
+  <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
   <style>
     /* Keyframes for bell swing animation */
     @keyframes swing {
