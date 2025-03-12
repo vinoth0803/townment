@@ -14,12 +14,10 @@ include 'admin_header.php';
   </div>
 </div>
 <script>
-  // Toggle the detailed view for a ticket (only on devices wider than 640px)
+  // Toggle the detailed view for a ticket on all devices
   function toggleTicketDetails(ticketId) {
-    if(window.innerWidth >= 640){
-      const detailRow = document.getElementById('ticket-details-' + ticketId);
-      detailRow.classList.toggle('hidden');
-    }
+    const detailRow = document.getElementById('ticket-details-' + ticketId);
+    detailRow.classList.toggle('hidden');
   }
 
   async function loadTickets(){

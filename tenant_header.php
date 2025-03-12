@@ -39,8 +39,8 @@ $profile_photo = ($photoRecord && !empty($photoRecord['photo_path']))
   <!-- Responsive scaling -->
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Tenant Dashboard - TOWNMENT</title>
-  <!-- <link rel="stylesheet" href="style.css"> -->
-  <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
+  <link rel="stylesheet" href="style.css">
+  <!-- <script src="https://unpkg.com/@tailwindcss/browser@4"></script> -->
   <style>
     /* Top Bar: white background; text/icons: #B82132 */
     .top-navbar {
@@ -68,7 +68,7 @@ $profile_photo = ($photoRecord && !empty($photoRecord['photo_path']))
       box-shadow: 2px 0 5px rgba(0,0,0,0.1);
       padding: 1.25rem;
       overflow-y: auto;
-     
+      z-index: 60;
       transition: transform 0.3s ease-in-out;
     }
     .sidebar a {
@@ -111,7 +111,8 @@ $profile_photo = ($photoRecord && !empty($photoRecord['photo_path']))
       transition: transform 0.3s ease-in-out;
       background-color: #B82132;
       color: white;
-      z-index: -1;
+      z-index: 60;
+      top: 3.4rem;
     }
     /* Calendar Card */
     .calendar-card {
