@@ -1310,7 +1310,7 @@ elseif ($action === 'getallTickets') {
     }
     
     try {
-        $stmt = $pdo->query("SELECT t.id, u.username, t.raised_date, t.issue, t.status
+        $stmt = $pdo->query("SELECT t.id, u.username, t.raised_date, t.issue, t.issue_description, t.status
                              FROM tickets t 
                              JOIN users u ON t.user_id = u.id 
                              ORDER BY t.raised_date DESC");
@@ -1320,6 +1320,7 @@ elseif ($action === 'getallTickets') {
         respond(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
     }
 }
+
 
 /*---------------------------------------------------------
  11. Tickets: Update Ticket Status
