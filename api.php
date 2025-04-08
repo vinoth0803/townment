@@ -1725,6 +1725,15 @@ elseif ($action === 'sendOTP') {
     $_SESSION['reset_otp']   = $otp;
     $_SESSION['reset_email'] = $email;
     
+    // Fetch the admin's email from the users table.
+    $stmtAdmin = $pdo->prepare("SELECT email FROM users WHERE role = 'admin' LIMIT 1");
+    $stmtAdmin->execute();
+    $admin = $stmtAdmin->fetch(PDO::FETCH_ASSOC);
+    if (!$admin) {
+        respond(['status' => 'error', 'message' => 'Admin email not found']);
+    }
+    $senderEmail = $admin['email'];
+    
     $apiKey = getenv('BREVO_API_KEY');
     if (!$apiKey) {
         respond(['status' => 'error', 'message' => 'Brevo API key not set']);
@@ -1733,7 +1742,7 @@ elseif ($action === 'sendOTP') {
     $emailData = [
         "sender" => [
             "name"  => "TOWNMENT ADMIN - Password Reset",
-            "email" => "vinothkrish0803@gmail.com"
+            "email" => $senderEmail
         ],
         "to" => [
             [
@@ -1770,6 +1779,7 @@ elseif ($action === 'sendOTP') {
         ]);
     }
 }
+
 elseif ($action === 'verifyOTP') {
     $input = json_decode(file_get_contents("php://input"), true);
     
